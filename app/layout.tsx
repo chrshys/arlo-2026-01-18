@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ConvexClientProvider } from '@/components/ConvexProvider'
+import { ThemeProvider } from '@/components/providers/theme-provider'
 
 export const metadata: Metadata = {
   title: 'Arlo',
@@ -13,9 +14,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ThemeProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

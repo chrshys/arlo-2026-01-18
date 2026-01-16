@@ -54,7 +54,7 @@ export function ActivityTable({ items }: ActivityTableProps) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-gray-500 border-b">
+          <tr className="text-left text-muted-foreground border-b border-border">
             <th className="pb-3 font-medium">Timestamp</th>
             <th className="pb-3 font-medium">Model</th>
             <th className="pb-3 font-medium">Thread</th>
@@ -64,17 +64,19 @@ export function ActivityTable({ items }: ActivityTableProps) {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item._id} className="border-b hover:bg-gray-50">
-              <td className="py-3 text-gray-600">{formatTimestamp(item._creationTime)}</td>
+            <tr key={item._id} className="border-b border-border hover:bg-muted/50">
+              <td className="py-3 text-muted-foreground">{formatTimestamp(item._creationTime)}</td>
               <td className="py-3">
-                <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                   {formatModel(item.model)}
                 </code>
               </td>
               <td className="py-3">
-                <span className="text-gray-500 font-mono text-xs">{truncateId(item.threadId)}</span>
+                <span className="text-muted-foreground font-mono text-xs">
+                  {truncateId(item.threadId)}
+                </span>
               </td>
-              <td className="py-3 text-gray-600">{formatTokens(item.usage)}</td>
+              <td className="py-3 text-muted-foreground">{formatTokens(item.usage)}</td>
               <td className="py-3 text-right font-mono">{formatCost(item.cost)}</td>
             </tr>
           ))}

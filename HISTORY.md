@@ -17,10 +17,12 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Development tooling (ESLint, Prettier, Vitest, Husky)
 - Code standards documentation
 - **Vercel AI Gateway integration** — token/spend tracking, provider fallbacks
+- **Activity dashboard** — settings page with AI usage table (model, tokens, cost)
+- **Design system** — shadcn/ui + Tailwind CSS variables + dark/light mode
 
 **Blockers:** None
 
-**Next Priority:** Activity dashboard (design approved), then Proactive features
+**Next Priority:** Proactive features (scheduled functions, morning summary, reminders)
 
 ### What Exists
 
@@ -269,6 +271,106 @@ pnpm test           # Vitest
 
 ---
 
+### 2026-01-16 (continued) — Design System Setup
+
+**Focus:** Establish a design system with shadcn/ui, Tailwind CSS variables, and dark/light mode support.
+
+**Motivation:** Build a consistent UI foundation before the codebase grows. Enable dark mode from the start. Use shadcn's component registry to pull components as needed.
+
+**Design Decisions:**
+
+1. **UI library:** shadcn/ui (components copied into codebase, not a dependency)
+2. **Color scheme:** shadcn defaults (neutral palette), customize later
+3. **Dark mode:** System preference with manual override in settings
+4. **Migration approach:** Gradual — existing components updated incrementally
+
+**Activities:**
+
+1. Ran `npx shadcn@latest init` to scaffold config and CSS variables
+2. Installed `next-themes` for dark mode handling
+3. Created ThemeProvider component wrapping next-themes
+4. Added Appearance settings page with theme selector (System/Light/Dark)
+5. Migrated all components to use CSS variable-based colors
+
+**Files Created:**
+
+| File                                      | Purpose                          |
+| ----------------------------------------- | -------------------------------- |
+| `components/providers/theme-provider.tsx` | next-themes wrapper              |
+| `app/settings/appearance/page.tsx`        | Theme selector UI                |
+| `components/ui/button.tsx`                | shadcn Button component          |
+| `components/ui/input.tsx`                 | shadcn Input component           |
+| `components/ui/select.tsx`                | shadcn Select component          |
+| `components/ui/checkbox.tsx`              | shadcn Checkbox component        |
+| `lib/utils.ts`                            | `cn()` utility for class merging |
+| `components.json`                         | shadcn configuration             |
+| `docs/plans/2025-01-16-design-system.md`  | Design document                  |
+
+**Files Modified:**
+
+| File                             | Changes                                                    |
+| -------------------------------- | ---------------------------------------------------------- |
+| `tailwind.config.ts`             | Added dark mode class strategy, CSS variable colors        |
+| `app/globals.css`                | Added CSS custom properties for light/dark themes          |
+| `app/layout.tsx`                 | Wrapped with ThemeProvider, added suppressHydrationWarning |
+| `app/settings/layout.tsx`        | Added Appearance nav item, migrated to CSS variables       |
+| `components/Chat.tsx`            | Migrated to shadcn Button/Input, CSS variable colors       |
+| `components/TaskList.tsx`        | Migrated to shadcn Checkbox, CSS variable colors           |
+| `components/ActivityTable.tsx`   | Migrated to CSS variable colors                            |
+| `app/page.tsx`                   | Migrated to CSS variable colors                            |
+| `app/settings/activity/page.tsx` | Migrated to CSS variable colors                            |
+
+**New Packages:**
+
+| Package                    | Purpose                                   |
+| -------------------------- | ----------------------------------------- |
+| `next-themes`              | Dark mode state management                |
+| `tailwindcss-animate`      | Animation utilities (shadcn dep)          |
+| `class-variance-authority` | Variant management (shadcn dep)           |
+| `clsx`                     | Class concatenation (shadcn dep)          |
+| `tailwind-merge`           | Tailwind class deduplication (shadcn dep) |
+| `@radix-ui/react-checkbox` | Checkbox primitive (shadcn dep)           |
+| `@radix-ui/react-select`   | Select primitive (shadcn dep)             |
+| `@radix-ui/react-slot`     | Slot primitive (shadcn dep)               |
+| `lucide-react`             | Icons (shadcn dep)                        |
+
+**Result:** All UI components now support dark mode. Theme can be toggled at `/settings/appearance`.
+
+---
+
+### 2026-01-16 (continued) — Activity Dashboard Implementation
+
+**Focus:** Implement the activity dashboard design.
+
+**Activities:**
+
+1. Created `convex/usage.ts` with `activityLog` query
+2. Built settings layout with sidebar navigation
+3. Implemented activity page with pagination selector
+4. Created ActivityTable component with formatted columns
+5. Added settings link to main header
+
+**Files Created:**
+
+| File                             | Purpose                                    |
+| -------------------------------- | ------------------------------------------ |
+| `convex/usage.ts`                | Query to aggregate messages with cost data |
+| `app/settings/layout.tsx`        | Settings shell with sidebar navigation     |
+| `app/settings/page.tsx`          | Redirect to /settings/activity             |
+| `app/settings/activity/page.tsx` | Activity page with table and pagination    |
+| `components/ActivityTable.tsx`   | Activity table component                   |
+
+**Technical Notes:**
+
+- Activity query iterates through threads to collect messages with usage data
+- Filters to assistant messages with `providerMetadata.gateway.cost`
+- Sorts by `_creationTime` descending, applies limit
+- Table formats: timestamps ("Jan 16, 12:44 PM"), model (strips provider prefix), tokens ("764 → 40"), cost ("$0.0029")
+
+**Result:** Activity dashboard implemented and accessible via Settings link in header.
+
+---
+
 ## Key Decisions
 
 | Date       | Decision                              | Rationale                                                                                  |
@@ -282,6 +384,8 @@ pnpm test           # Vitest
 | 2026-01-16 | Skip CI/CD for now                    | Solo developer; git hooks sufficient; add CI when collaborating or before production       |
 | 2026-01-16 | Migrate to Vercel AI Gateway          | Token/spend tracking, provider fallbacks, future model routing for different agent types   |
 | 2026-01-16 | Activity dashboard design             | In-app spend visibility; table-only MVP with settings sidebar for future expansion         |
+| 2026-01-16 | Activity dashboard implemented        | Settings section with activity table; iterates threads for MVP (no cross-thread index)     |
+| 2026-01-16 | Design system with shadcn/ui          | CSS variable-based theming; dark mode from day one; pull components as needed              |
 
 ---
 

@@ -7,7 +7,10 @@ interface SettingsLayoutProps {
   children: React.ReactNode
 }
 
-const navItems = [{ href: '/settings/activity', label: 'Activity' }]
+const navItems = [
+  { href: '/settings/activity', label: 'Activity' },
+  { href: '/settings/appearance', label: 'Appearance' },
+]
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
   const pathname = usePathname()
@@ -15,9 +18,9 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
   return (
     <div className="h-screen flex">
       {/* Sidebar */}
-      <aside className="w-52 border-r bg-gray-50 flex flex-col">
-        <div className="p-4 border-b">
-          <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
+      <aside className="w-52 border-r border-border bg-muted/40 flex flex-col">
+        <div className="p-4 border-b border-border">
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
             &larr; Back to Arlo
           </Link>
         </div>
@@ -30,8 +33,8 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
                 href={item.href}
                 className={`block px-3 py-2 rounded text-sm ${
                   isActive
-                    ? 'bg-gray-200 text-gray-900 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-muted text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                 }`}
               >
                 {item.label}

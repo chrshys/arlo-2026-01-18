@@ -13,15 +13,18 @@ export default function Home() {
     <main className="h-screen flex flex-col md:flex-row">
       {/* Chat panel */}
       <div className="flex-1 flex flex-col min-h-0">
-        <header className="p-4 border-b flex items-center justify-between">
+        <header className="p-4 border-b border-border flex items-center justify-between">
           <h1 className="text-xl font-bold">Arlo</h1>
           <div className="flex items-center gap-2">
-            <Link href="/settings" className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">
+            <Link
+              href="/settings"
+              className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
+            >
               Settings
             </Link>
             <button
               onClick={() => setShowTasks(!showTasks)}
-              className="md:hidden px-3 py-1 text-sm border rounded hover:bg-gray-50"
+              className="md:hidden px-3 py-1 text-sm border border-border rounded hover:bg-muted/50"
             >
               {showTasks ? 'Chat' : 'Tasks'}
             </button>
@@ -36,7 +39,7 @@ export default function Home() {
       <div
         className={`${
           showTasks ? 'flex' : 'hidden md:flex'
-        } flex-col w-full md:w-80 border-l bg-gray-50`}
+        } flex-col w-full md:w-80 border-l border-border bg-muted/40`}
       >
         <TaskList />
       </div>
