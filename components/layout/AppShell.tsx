@@ -4,6 +4,8 @@ import { type ReactNode } from 'react'
 import { IconRail } from './IconRail'
 import { AppHeader } from './AppHeader'
 import { DesktopPanelLayout } from './DesktopPanelLayout'
+import { MobileLayout } from './MobileLayout'
+import { usePanelLayout } from '@/components/providers/panel-layout-provider'
 import { cn } from '@/lib/utils'
 import { type ContentMaxWidth, CONTENT_MAX_WIDTHS } from '@/types/panel-layout'
 
@@ -13,9 +15,11 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, className }: AppShellProps) {
+  const { isMobile } = usePanelLayout()
+
   return (
     <div className={cn('h-screen flex', className)}>
-      <IconRail />
+      {!isMobile && <IconRail />}
       <div className="flex-1 flex flex-col min-w-0">
         <AppHeader />
         <div className="flex-1 min-h-0">{children}</div>
@@ -66,6 +70,12 @@ interface LayoutProps {
 }
 
 function Layout({ list, focus, canvas }: LayoutProps) {
+  const { isMobile } = usePanelLayout()
+
+  if (isMobile) {
+    return <MobileLayout listPanel={list} focusPanel={focus} canvasPanel={canvas} />
+  }
+
   return <DesktopPanelLayout listPanel={list} focusPanel={focus} canvasPanel={canvas} />
 }
 
