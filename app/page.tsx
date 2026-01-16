@@ -29,7 +29,7 @@ export default function Home() {
           </AppShell.List>
         }
         focus={
-          <AppShell.Focus>
+          <AppShell.Focus contentMaxWidth="medium">
             <Chat threadId={threadId} onThreadCreated={setThreadId} />
           </AppShell.Focus>
         }

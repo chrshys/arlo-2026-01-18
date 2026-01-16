@@ -5,6 +5,7 @@ import { IconRail } from './IconRail'
 import { AppHeader } from './AppHeader'
 import { DesktopPanelLayout } from './DesktopPanelLayout'
 import { cn } from '@/lib/utils'
+import { type ContentMaxWidth, CONTENT_MAX_WIDTHS } from '@/types/panel-layout'
 
 interface AppShellProps {
   children: ReactNode
@@ -12,7 +13,6 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, className }: AppShellProps) {
-  // Temporarily removed usePanelLayout to debug
   return (
     <div className={cn('h-screen flex', className)}>
       <IconRail />
@@ -34,8 +34,23 @@ function ListPanel({ children, className }: PanelProps) {
   return <div className={cn('h-full w-full flex flex-col', className)}>{children}</div>
 }
 
-function FocusPanel({ children, className }: PanelProps) {
-  return <div className={cn('h-full w-full flex flex-col', className)}>{children}</div>
+interface FocusPanelProps extends PanelProps {
+  contentMaxWidth?: ContentMaxWidth
+}
+
+function FocusPanel({ children, className, contentMaxWidth }: FocusPanelProps) {
+  const maxWidth = contentMaxWidth ? CONTENT_MAX_WIDTHS[contentMaxWidth] : undefined
+
+  return (
+    <div className={cn('h-full w-full flex flex-col', className)}>
+      <div
+        className="flex-1 flex flex-col min-h-0 mx-auto w-full"
+        style={maxWidth ? { maxWidth } : undefined}
+      >
+        {children}
+      </div>
+    </div>
+  )
 }
 
 // Canvas panel wrapper
