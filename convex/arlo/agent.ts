@@ -1,11 +1,15 @@
 import { Agent } from '@convex-dev/agent'
-import { anthropic } from '@ai-sdk/anthropic'
+import { createGateway } from '@ai-sdk/gateway'
 import { components } from '../_generated/api'
 import { createTask, listTasks, completeTask } from './tools'
 
+const gateway = createGateway({
+  apiKey: process.env.AI_GATEWAY_API_KEY,
+})
+
 export const arlo = new Agent(components.agent, {
   name: 'Arlo',
-  chat: anthropic('claude-sonnet-4-20250514'),
+  languageModel: gateway('anthropic/claude-sonnet-4'),
   instructions: `You are Arlo, a personal assistant who shares a task workspace with the user.
 
 You can create tasks, list tasks, and complete tasks. Be concise and helpful.

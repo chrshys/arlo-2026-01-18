@@ -14,10 +14,13 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Task creation/completion via chat
 - Task list with real-time updates
 - Mobile-responsive layout
+- Development tooling (ESLint, Prettier, Vitest, Husky)
+- Code standards documentation
+- **Vercel AI Gateway integration** — token/spend tracking, provider fallbacks
 
 **Blockers:** None
 
-**Next Priority:** Proactive features — scheduled functions, morning summary, reminders
+**Next Priority:** Activity dashboard (design approved), then Proactive features
 
 ### What Exists
 
@@ -163,6 +166,109 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 ---
 
+### 2026-01-16 (continued) — Development Infrastructure Setup
+
+**Focus:** Establish code quality tooling for an AI-written codebase.
+
+**Context:** Codebase will be 100% AI-written, so tooling focuses on consistency across sessions, catching errors automatically, and documenting conventions AI can follow.
+
+**Activities:**
+
+1. Audited existing infrastructure (TypeScript strict mode was already good)
+2. Installed and configured Prettier, ESLint, Vitest, Husky, lint-staged
+3. Created STANDARDS.md with coding conventions for AI to follow
+4. Set up git repo with initial commit
+
+**Files Created/Modified:**
+
+| File                        | Purpose                                                         |
+| --------------------------- | --------------------------------------------------------------- |
+| `.prettierrc`               | Formatting rules (no semicolons, single quotes, 100 char width) |
+| `.prettierignore`           | Ignore generated/external files                                 |
+| `eslint.config.mjs`         | Strict ESLint with TypeScript, React, and React Hooks rules     |
+| `vitest.config.ts`          | Test runner config with jsdom, React support                    |
+| `vitest.setup.ts`           | Test setup (jest-dom matchers)                                  |
+| `.husky/pre-commit`         | Runs lint-staged before each commit                             |
+| `STANDARDS.md`              | Code conventions for AI to follow                               |
+| `__tests__/example.test.ts` | Sample test to verify setup                                     |
+| `package.json`              | Added scripts: check, lint, format, typecheck, test             |
+
+**New Commands:**
+
+```bash
+pnpm check          # typecheck + lint + format check
+pnpm lint           # ESLint
+pnpm format         # Prettier
+pnpm typecheck      # TypeScript
+pnpm test           # Vitest
+```
+
+**Decision:** Skip CI/CD for now (solo developer, checks run locally via git hooks).
+
+**Result:** All checks pass. Initial commit created with 295 files.
+
+---
+
+### 2026-01-16 (continued) — Vercel AI Gateway Migration
+
+**Focus:** Migrate from direct Anthropic API to Vercel AI Gateway for spend tracking and provider flexibility.
+
+**Motivation:** Track token spend in Vercel dashboard, enable future model routing (different agents for different tasks), automatic failover to backup providers.
+
+**Activities:**
+
+1. Researched Vercel AI Gateway documentation
+2. Installed `@ai-sdk/gateway` package
+3. Updated `convex/arlo/agent.ts` to use gateway provider
+4. Upgraded `@convex-dev/agent` from 0.1.x to 0.3.2 (required AI SDK v5)
+5. Upgraded `ai` package from v4 to v5
+6. Resolved version compatibility issues (gateway v2 for agent v0.3.x compatibility)
+7. Tested end-to-end: message → tool call → response
+
+**Package Changes:**
+
+| Package             | Before | After   |
+| ------------------- | ------ | ------- |
+| `ai`                | 4.3.x  | 5.0.121 |
+| `@convex-dev/agent` | 0.1.x  | 0.3.2   |
+| `@ai-sdk/gateway`   | —      | 2.0.27  |
+| `@ai-sdk/anthropic` | 1.2.x  | removed |
+
+**Code Changes:**
+
+- `convex/arlo/agent.ts`: `anthropic()` → `gateway()`, `chat` → `languageModel`
+- Environment: Added `AI_GATEWAY_API_KEY` to Convex
+
+**Result:** Arlo now routes through AI Gateway. Each request logs:
+
+- Cost per request (e.g., `$0.003066`)
+- Token breakdown (prompt/completion)
+- Provider routing with fallbacks (Anthropic → Vertex → Bedrock)
+
+---
+
+### 2026-01-16 (continued) — Activity Dashboard Design
+
+**Focus:** Design an in-app activity dashboard for tracking AI spend.
+
+**Context:** With AI Gateway integrated, cost data is now available per request. User wants visibility into spend within the app, similar to OpenRouter's activity feed.
+
+**Design Decisions:**
+
+1. **Scope:** Activity table only (no summary charts for MVP)
+2. **Location:** New `/settings/activity` page under settings section
+3. **Columns:** Timestamp, Model, Thread, Tokens (in→out), Cost
+4. **Pagination:** Basic 25/50/100 items (no date filtering for MVP)
+5. **Settings structure:** Sidebar layout for future expansion
+
+**Artifacts Created:**
+
+- `docs/plans/2026-01-16-activity-dashboard-design.md` — Full design specification
+
+**Result:** Design approved, ready for implementation.
+
+---
+
 ## Key Decisions
 
 | Date       | Decision                              | Rationale                                                                                  |
@@ -172,6 +278,10 @@ This file captures summaries of development sessions, key decisions made, and ar
 | 2026-01-16 | Lean into Vercel ecosystem            | AI SDK, excellent tooling, active development                                              |
 | 2026-01-16 | No hybrid with Vercel Workflow        | Convex Agent + Workflow components provide all needed capabilities                         |
 | 2026-01-16 | Foundation complete                   | Implemented 01-foundation.md plan, first milestone achieved                                |
+| 2026-01-16 | Dev tooling for AI-written code       | Prettier, ESLint, Vitest, Husky — consistency across sessions, auto-catch errors           |
+| 2026-01-16 | Skip CI/CD for now                    | Solo developer; git hooks sufficient; add CI when collaborating or before production       |
+| 2026-01-16 | Migrate to Vercel AI Gateway          | Token/spend tracking, provider fallbacks, future model routing for different agent types   |
+| 2026-01-16 | Activity dashboard design             | In-app spend visibility; table-only MVP with settings sidebar for future expansion         |
 
 ---
 
