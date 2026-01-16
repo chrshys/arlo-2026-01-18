@@ -13,6 +13,7 @@ import type * as arlo_tools from "../arlo/tools.js";
 import type * as chat from "../chat.js";
 import type * as tasks from "../tasks.js";
 import type * as threads from "../threads.js";
+import type * as usage from "../usage.js";
 
 import type {
   ApiFromModules,
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   tasks: typeof tasks;
   threads: typeof threads;
+  usage: typeof usage;
 }>;
 
 /**
