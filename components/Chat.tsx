@@ -8,16 +8,13 @@ import { Input } from '@/components/ui/input'
 
 interface ChatProps {
   threadId: string | null
-  onThreadCreated: (id: string) => void
 }
 
-export function Chat({ threadId, onThreadCreated }: ChatProps) {
+export function Chat({ threadId }: ChatProps) {
   const [input, setInput] = useState('')
-  const [isCreatingThread, setIsCreatingThread] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const createThread = useMutation(api.threads.create)
   const sendMessage = useMutation(api.chat.send)
 
   const { results: messages, status } = usePaginatedQuery(
@@ -33,32 +30,13 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() || !threadId) return
 
     const message = input.trim()
     setErrorMessage(null)
 
-    let currentThreadId = threadId
-
-    // Create thread if needed
-    if (!currentThreadId) {
-      setIsCreatingThread(true)
-      try {
-        // createThread returns the threadId directly as a string
-        currentThreadId = await createThread()
-        onThreadCreated(currentThreadId)
-      } catch (error) {
-        console.error('Failed to create thread:', error)
-        setErrorMessage('Failed to start a new thread. Please try again.')
-        setIsCreatingThread(false)
-        return
-      }
-      setIsCreatingThread(false)
-    }
-
-    // Send message
     try {
-      await sendMessage({ prompt: message, threadId: currentThreadId })
+      await sendMessage({ prompt: message, threadId })
       setInput('')
     } catch (error) {
       console.error('Failed to send message:', error)
@@ -71,6 +49,15 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
   // Get message role from the message object
   const getRole = (msg: (typeof messages)[number]) => {
     return msg.message?.role ?? 'assistant'
+  }
+
+  // Show empty state when no thread is selected
+  if (!threadId) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
+        <p>Select a conversation or start a new one</p>
+      </div>
+    )
   }
 
   return (
@@ -117,10 +104,9 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message Arlo..."
-            disabled={isCreatingThread}
             className="flex-1"
           />
-          <Button type="submit" disabled={!input.trim() || isCreatingThread}>
+          <Button type="submit" disabled={!input.trim()}>
             Send
           </Button>
         </div>

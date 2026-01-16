@@ -1,14 +1,23 @@
 'use client'
 
 import { useState } from 'react'
+import { useMutation } from 'convex/react'
+import { api } from '../convex/_generated/api'
 import { Chat } from '@/components/Chat'
 import { TaskList } from '@/components/TaskList'
+import { ConversationList } from '@/components/ConversationList'
 import { AppShell, PanelHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Plus, CheckSquare } from 'lucide-react'
 
 export default function Home() {
   const [threadId, setThreadId] = useState<string | null>(null)
+  const createThread = useMutation(api.threads.create)
+
+  const handleNewThread = async () => {
+    const newThreadId = await createThread()
+    setThreadId(newThreadId)
+  }
 
   return (
     <AppShell>
@@ -18,19 +27,25 @@ export default function Home() {
             <PanelHeader>
               <PanelHeader.Title>Conversations</PanelHeader.Title>
               <PanelHeader.Actions>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleNewThread}
+                  title="New conversation"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </PanelHeader.Actions>
             </PanelHeader>
-            <div className="flex-1 overflow-auto p-2">
-              <div className="text-sm text-muted-foreground p-2">Chat history will appear here</div>
+            <div className="flex-1 overflow-auto">
+              <ConversationList selectedThreadId={threadId} onSelectThread={setThreadId} />
             </div>
           </AppShell.List>
         }
         focus={
           <AppShell.Focus contentMaxWidth="medium">
-            <Chat threadId={threadId} onThreadCreated={setThreadId} />
+            <Chat threadId={threadId} />
           </AppShell.Focus>
         }
         canvas={

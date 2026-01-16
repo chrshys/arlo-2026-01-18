@@ -12,6 +12,20 @@ export const send = mutation({
       threadId,
       prompt,
     })
+
+    // Set thread title from first message if not already set
+    // Component uses its own ID type, so we need type assertion
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const thread = await ctx.runQuery(components.agent.threads.getThread, { threadId } as any)
+    if (thread && !thread.title) {
+      const title = prompt.length > 50 ? prompt.slice(0, 50) + '...' : prompt
+      await ctx.runMutation(components.agent.threads.updateThread, {
+        threadId,
+        patch: { title },
+      } as any)
+    }
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
     await ctx.scheduler.runAfter(0, internal.chat.generateResponse, {
       threadId,
       promptMessageId: messageId,
