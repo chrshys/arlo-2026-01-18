@@ -1,0 +1,29 @@
+import { mutation, internalAction } from './_generated/server'
+import { v } from 'convex/values'
+import { saveMessage } from '@convex-dev/agent'
+import { components, internal } from './_generated/api'
+import { arlo } from './arlo/agent'
+
+// User sends a message
+export const send = mutation({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId,
+      prompt,
+    })
+    await ctx.scheduler.runAfter(0, internal.chat.generateResponse, {
+      threadId,
+      promptMessageId: messageId,
+    })
+    return messageId
+  },
+})
+
+// Arlo generates a response
+export const generateResponse = internalAction({
+  args: { threadId: v.string(), promptMessageId: v.string() },
+  handler: async (ctx, { threadId, promptMessageId }) => {
+    await arlo.generateText(ctx, { threadId }, { promptMessageId })
+  },
+})

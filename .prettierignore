@@ -1,0 +1,13 @@
+node_modules
+.next
+convex/_generated
+dist
+.convex
+pnpm-lock.yaml
+
+# AI tool skill directories (external)
+.agent
+.claude
+.codex
+.cursor
+.opencode
