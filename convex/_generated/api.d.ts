@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activity from "../activity.js";
 import type * as arlo_agent from "../arlo/agent.js";
 import type * as arlo_tools from "../arlo/tools.js";
 import type * as chat from "../chat.js";
@@ -22,6 +23,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activity: typeof activity;
   "arlo/agent": typeof arlo_agent;
   "arlo/tools": typeof arlo_tools;
   chat: typeof chat;

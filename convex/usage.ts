@@ -21,11 +21,13 @@ export const activityLog = query({
   },
   handler: async (ctx, args): Promise<ActivityItem[]> => {
     const limit = args.limit ?? 25
+    const threadPageSize = Math.min(100, Math.max(10, limit * 2))
+    const messagesPerThread = Math.min(50, Math.max(5, Math.ceil(limit / 2)))
 
     // Get all threads (no userId filter for MVP without auth)
     const threadsResult = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
       order: 'desc',
-      paginationOpts: { cursor: null, numItems: 100 },
+      paginationOpts: { cursor: null, numItems: threadPageSize },
     })
 
     const allMessages: ActivityItem[] = []
@@ -37,7 +39,7 @@ export const activityLog = query({
         order: 'desc',
         excludeToolMessages: true,
         statuses: ['success'],
-        paginationOpts: { cursor: null, numItems: 50 },
+        paginationOpts: { cursor: null, numItems: messagesPerThread },
       })
 
       // Filter to messages with usage/cost data (assistant responses)

@@ -14,6 +14,7 @@ interface ChatProps {
 export function Chat({ threadId, onThreadCreated }: ChatProps) {
   const [input, setInput] = useState('')
   const [isCreatingThread, setIsCreatingThread] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const createThread = useMutation(api.threads.create)
@@ -35,7 +36,7 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
     if (!input.trim()) return
 
     const message = input.trim()
-    setInput('')
+    setErrorMessage(null)
 
     let currentThreadId = threadId
 
@@ -48,6 +49,7 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
         onThreadCreated(currentThreadId)
       } catch (error) {
         console.error('Failed to create thread:', error)
+        setErrorMessage('Failed to start a new thread. Please try again.')
         setIsCreatingThread(false)
         return
       }
@@ -57,8 +59,10 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
     // Send message
     try {
       await sendMessage({ prompt: message, threadId: currentThreadId })
+      setInput('')
     } catch (error) {
       console.error('Failed to send message:', error)
+      setErrorMessage('Failed to send message. Please try again.')
     }
   }
 
@@ -106,6 +110,7 @@ export function Chat({ threadId, onThreadCreated }: ChatProps) {
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-border">
+        {errorMessage && <div className="mb-2 text-sm text-destructive">{errorMessage}</div>}
         <div className="flex gap-2">
           <Input
             type="text"

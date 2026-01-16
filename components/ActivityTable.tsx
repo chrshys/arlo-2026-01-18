@@ -17,7 +17,7 @@ interface ActivityTableProps {
   items: ActivityItem[]
 }
 
-function formatTimestamp(timestamp: number): string {
+export function formatTimestamp(timestamp: number): string {
   return new Date(timestamp).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -27,25 +27,25 @@ function formatTimestamp(timestamp: number): string {
   })
 }
 
-function formatModel(model: string | undefined): string {
+export function formatModel(model: string | undefined): string {
   if (!model) return '-'
   // Strip provider prefix (e.g., "anthropic/claude-sonnet-4" -> "claude-sonnet-4")
   const parts = model.split('/')
   return parts[parts.length - 1]
 }
 
-function formatTokens(usage: ActivityItem['usage']): string {
+export function formatTokens(usage: ActivityItem['usage']): string {
   if (!usage) return '-'
   return `${usage.promptTokens} → ${usage.completionTokens}`
 }
 
-function formatCost(cost: string | null): string {
+export function formatCost(cost: string | null): string {
   if (!cost) return '-'
   const num = parseFloat(cost)
   return `$${num.toFixed(4)}`
 }
 
-function truncateId(id: string): string {
+export function truncateId(id: string): string {
   return id.slice(0, 8) + '...'
 }
 

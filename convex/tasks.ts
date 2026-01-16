@@ -1,6 +1,5 @@
 import { mutation, query, internalMutation, internalQuery } from './_generated/server'
 import { v } from 'convex/values'
-import { Id } from './_generated/dataModel'
 
 // Internal mutation for Arlo to create tasks
 export const create = internalMutation({
@@ -31,9 +30,9 @@ export const listPending = internalQuery({
 
 // Internal mutation for Arlo to complete tasks
 export const complete = internalMutation({
-  args: { taskId: v.string() },
+  args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {
-    await ctx.db.patch(taskId as Id<'tasks'>, {
+    await ctx.db.patch(taskId, {
       status: 'completed',
       completedAt: Date.now(),
     })

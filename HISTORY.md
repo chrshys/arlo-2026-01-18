@@ -371,6 +371,36 @@ pnpm test           # Vitest
 
 ---
 
+### 2026-01-16 (continued) — Quality Fixes & Logging
+
+**Focus:** Address quality findings and add minimal test coverage.
+
+**Activities:**
+
+1. Tightened task ID validation in Convex mutations
+2. Added `activity` table and internal logging mutation
+3. Logged Arlo tool actions (create/list/complete)
+4. Bounded activity log query to reduce N+1 cost
+5. Added user-facing chat error messaging and preserved drafts on failure
+6. Added helper tests for Activity table formatting
+
+**Files Created/Modified:**
+
+| File                               | Purpose                                  |
+| ---------------------------------- | ---------------------------------------- |
+| `convex/activity.ts`               | Activity logging mutation                |
+| `convex/schema.ts`                 | Added `activity` table                   |
+| `convex/arlo/tools.ts`             | Log Arlo tool actions                    |
+| `convex/usage.ts`                  | Bounded activity log query               |
+| `convex/tasks.ts`                  | Stronger `taskId` validation             |
+| `components/Chat.tsx`              | Inline error feedback + preserved drafts |
+| `components/ActivityTable.tsx`     | Exported formatting helpers              |
+| `__tests__/activity-table.test.ts` | Added formatting tests                   |
+
+**Result:** Better validation, audit logging for Arlo actions, safer activity query, basic tests.
+
+---
+
 ## Key Decisions
 
 | Date       | Decision                              | Rationale                                                                                  |
