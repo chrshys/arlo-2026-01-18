@@ -3,6 +3,7 @@
 import { Home, MessageSquare, CheckSquare, FileText, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface IconRailProps {
   className?: string
@@ -26,8 +27,10 @@ export function IconRail({ className }: IconRailProps) {
         </Button>
       </nav>
       <div className="flex flex-col items-center py-2 border-t border-border">
-        <Button variant="ghost" size="icon" className="h-10 w-10" title="Settings">
-          <Settings className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className="h-10 w-10" title="Settings" asChild>
+          <Link href="/settings">
+            <Settings className="h-5 w-5" />
+          </Link>
         </Button>
       </div>
     </div>

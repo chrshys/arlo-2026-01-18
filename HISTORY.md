@@ -507,3 +507,47 @@ The panels weren't "collapsing" — they were rendering correctly at 20 pixels w
 - Continuing with Phase 4-8 of incremental plan
 
 **Lesson Learned:** When a library's major version changes, check if fundamental units changed (percentages → pixels). Systematic testing is valuable, but also pay attention to the actual rendered sizes.
+
+---
+
+### 2026-01-16 (continued) — Panel Resize Bug Fix
+
+**Focus:** Debug and fix resizable panels not responding to drag.
+
+**Symptom:** List panel rendered at correct size but could not be resized by dragging the separator.
+
+**Debugging Process:**
+
+1. Created systematic test cases isolating different variables
+2. Tests 1-5 all worked (basic, fragments, nesting, context, full structure)
+3. Test 6 (actual DesktopPanelLayout component) failed
+4. Test 7 (with `onResize` callback updating state) failed
+5. Test 8 (with `onResize` callback only logging) worked
+
+**Root Cause:**
+
+Using `onResize` on Panel components triggered React state updates during drag, which caused re-renders that broke the library's internal drag state management.
+
+```tsx
+// BROKEN: State update during drag breaks resize
+<Panel onResize={(size) => setListPanelSize(size.inPixels)}>
+
+// FIXED: Update state only when drag ends
+<Group onLayoutChanged={(layout) => setListPanelSize(layout.list)}>
+```
+
+**Solution:**
+
+Replace `onResize` on individual Panel components with `onLayoutChanged` on the Group component. The `onLayoutChanged` callback only fires when the pointer is released, so state updates don't interfere with active drag operations.
+
+**Files Modified:**
+
+| File                                       | Changes                                                |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `components/layout/DesktopPanelLayout.tsx` | Replaced Panel `onResize` with Group `onLayoutChanged` |
+
+**Lessons Learned:**
+
+1. `react-resizable-panels` v4: Don't update React state in `onResize` callbacks
+2. Use `onLayoutChanged` on Group for persisting sizes (fires only on drag end)
+3. Systematic test isolation is effective for narrowing down root causes
