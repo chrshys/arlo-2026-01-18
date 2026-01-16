@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ConvexClientProvider } from '@/components/ConvexProvider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { PanelLayoutProvider } from '@/components/providers/panel-layout-provider'
 
 export const metadata: Metadata = {
   title: 'Arlo',
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
         <ThemeProvider>
-          <ConvexClientProvider>{children}</ConvexClientProvider>
+          <ConvexClientProvider>
+            <PanelLayoutProvider>{children}</PanelLayoutProvider>
+          </ConvexClientProvider>
         </ThemeProvider>
       </body>
     </html>
