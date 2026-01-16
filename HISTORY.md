@@ -551,3 +551,32 @@ Replace `onResize` on individual Panel components with `onLayoutChanged` on the 
 1. `react-resizable-panels` v4: Don't update React state in `onResize` callbacks
 2. Use `onLayoutChanged` on Group for persisting sizes (fires only on drag end)
 3. Systematic test isolation is effective for narrowing down root causes
+
+---
+
+### 2026-01-16 (continued) — Header Layout & Panel Toggle UI
+
+**Focus:** Improve header layout and add visual panel toggle controls.
+
+**Changes:**
+
+1. **Panel toggle buttons in header** — Added PanelLeft/PanelRight icons to toggle list and canvas panels, with visual indicator (muted background) when active
+2. **Settings moved to sidebar** — Removed settings icon from header, wired up existing IconRail settings button to `/settings`
+3. **Centered search bar** — Restructured header into three-column layout:
+   - Left: App name (fixed min-width)
+   - Center: Command-K search bar (centered, flexible)
+   - Right: Panel toggle buttons (right-aligned, matching min-width)
+4. **Removed focus ring on separators** — Added `outline-none` to resize handles
+
+**Files Modified:**
+
+| File                                       | Changes                                              |
+| ------------------------------------------ | ---------------------------------------------------- |
+| `components/layout/AppHeader.tsx`          | Three-column layout, panel toggles, removed settings |
+| `components/layout/IconRail.tsx`           | Wired settings button to `/settings` route           |
+| `components/layout/DesktopPanelLayout.tsx` | Added `outline-none` to Separator components         |
+
+**Keyboard Shortcuts:**
+
+- `⌘B` — Toggle list panel (left)
+- `⌘\` — Toggle canvas panel (right)
