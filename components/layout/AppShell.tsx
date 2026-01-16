@@ -1,8 +1,6 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { usePanelLayout } from '@/components/providers/panel-layout-provider'
-import { usePanelShortcuts } from '@/hooks/use-panel-shortcuts'
 import { IconRail } from './IconRail'
 import { AppHeader } from './AppHeader'
 import { DesktopPanelLayout } from './DesktopPanelLayout'
@@ -14,14 +12,10 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, className }: AppShellProps) {
-  const { isMobile } = usePanelLayout()
-
-  // Enable keyboard shortcuts
-  usePanelShortcuts()
-
+  // Temporarily removed usePanelLayout to debug
   return (
     <div className={cn('h-screen flex', className)}>
-      {!isMobile && <IconRail />}
+      <IconRail />
       <div className="flex-1 flex flex-col min-w-0">
         <AppHeader />
         <div className="flex-1 min-h-0">{children}</div>
@@ -37,30 +31,30 @@ interface PanelProps {
 }
 
 function ListPanel({ children, className }: PanelProps) {
-  return <div className={cn('h-full flex flex-col', className)}>{children}</div>
+  return <div className={cn('h-full w-full flex flex-col', className)}>{children}</div>
 }
 
 function FocusPanel({ children, className }: PanelProps) {
-  return <div className={cn('h-full flex flex-col', className)}>{children}</div>
+  return <div className={cn('h-full w-full flex flex-col', className)}>{children}</div>
+}
+
+// Canvas panel wrapper
+function CanvasPanel({ children, className }: PanelProps) {
+  return <div className={cn('h-full w-full flex flex-col', className)}>{children}</div>
 }
 
 // Layout component that arranges panels
 interface LayoutProps {
   list?: ReactNode
   focus: ReactNode
+  canvas?: ReactNode
 }
 
-function Layout({ list, focus }: LayoutProps) {
-  const { isMobile } = usePanelLayout()
-
-  if (isMobile) {
-    // For now, just show the focus panel on mobile
-    return <div className="h-full">{focus}</div>
-  }
-
-  return <DesktopPanelLayout listPanel={list} focusPanel={focus} />
+function Layout({ list, focus, canvas }: LayoutProps) {
+  return <DesktopPanelLayout listPanel={list} focusPanel={focus} canvasPanel={canvas} />
 }
 
 AppShell.List = ListPanel
 AppShell.Focus = FocusPanel
+AppShell.Canvas = CanvasPanel
 AppShell.Layout = Layout

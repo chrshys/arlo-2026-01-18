@@ -431,3 +431,79 @@ Terms and concepts established during development:
 | **Thread**            | Persistent message container in Convex Agent; shareable across agents/users |
 | **Human-in-the-loop** | Pattern where workflow pauses for human approval before external actions    |
 | **Tool limits**       | Max steps (e.g., 20) to prevent runaway agent execution and costs           |
+
+---
+
+### 2026-01-16 (continued) — Multi-Panel Layout Implementation
+
+**Focus:** Implement resizable multi-panel layout (Icon Rail, App Header, List Panel, Focus Panel).
+
+**Branch:** `feature/multi-panel-layout`
+
+**Activities:**
+
+1. Created incremental implementation plan (`docs/plans/2026-01-16-multi-panel-layout-incremental.md`)
+2. Installed `react-resizable-panels` (v4.x — significantly different API from v3.x)
+3. Implemented Phase 1: Foundation (types, provider, minimal AppShell)
+4. Implemented Phase 2: Icon Rail component
+5. Implemented Phase 3: App Header with command bar
+6. Started Phase 4: Resizable panels — encountered persistent collapse bug
+
+**Files Created:**
+
+| File                                                            | Purpose                                        |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| `types/panel-layout.ts`                                         | Panel layout types and defaults                |
+| `components/providers/panel-layout-provider.tsx`                | Context provider with localStorage persistence |
+| `components/layout/AppShell.tsx`                                | Main layout shell with compound components     |
+| `components/layout/IconRail.tsx`                                | Left icon navigation rail                      |
+| `components/layout/AppHeader.tsx`                               | Top header with command bar                    |
+| `components/layout/DesktopPanelLayout.tsx`                      | Resizable panel container                      |
+| `app/test-panels/page.tsx` through `app/test-panels12/page.tsx` | Debug test pages                               |
+
+**Critical Discovery: `react-resizable-panels` v4.x API Changes**
+
+The library completely changed its API from v3 to v4:
+
+| v3.x (shadcn docs)       | v4.x (actual)                                                 |
+| ------------------------ | ------------------------------------------------------------- |
+| `PanelGroup`             | `Group`                                                       |
+| `PanelResizeHandle`      | `Separator`                                                   |
+| `direction` prop         | `orientation` prop                                            |
+| `onResize(size: number)` | `onResize(size: PanelSize)` with `{ asPercentage, inPixels }` |
+
+**Root Cause: v4 Uses Pixels, Not Percentages**
+
+After extensive debugging (12 test pages), the actual issue was discovered:
+
+**`react-resizable-panels` v4.x uses PIXELS for size values, not percentages.**
+
+| v3.x (shadcn docs)       | v4.x (actual)                  |
+| ------------------------ | ------------------------------ |
+| `defaultSize={20}` = 20% | `defaultSize={20}` = 20 pixels |
+| `minSize={15}` = 15%     | `minSize={200}` = 200 pixels   |
+| `maxSize={35}` = 35%     | `maxSize={400}` = 400 pixels   |
+
+The panels weren't "collapsing" — they were rendering correctly at 20 pixels wide.
+
+**Debugging Process:**
+
+1. Initially suspected: React fragments, nested wrappers, flexbox, hydration, maxSize
+2. Created 12 test pages systematically isolating variables
+3. User discovered the fix when manually setting `defaultSize={200}` and it worked
+
+**Corrected Values:**
+
+```typescript
+// DesktopPanelLayout.tsx
+<Panel id="list" defaultSize={280} minSize={200} maxSize={400}>
+<Panel id="focus" minSize={400}>
+```
+
+**Current State:**
+
+- Phase 1-3 complete and working
+- Phase 4 now unblocked with correct pixel values
+- Continuing with Phase 4-8 of incremental plan
+
+**Lesson Learned:** When a library's major version changes, check if fundamental units changed (percentages → pixels). Systematic testing is valuable, but also pay attention to the actual rendered sizes.

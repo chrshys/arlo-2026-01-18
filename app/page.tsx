@@ -5,7 +5,7 @@ import { Chat } from '@/components/Chat'
 import { TaskList } from '@/components/TaskList'
 import { AppShell, PanelHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, CheckSquare } from 'lucide-react'
 
 export default function Home() {
   const [threadId, setThreadId] = useState<string | null>(null)
@@ -30,18 +30,28 @@ export default function Home() {
         }
         focus={
           <AppShell.Focus>
-            <div className="flex-1 flex flex-col md:flex-row min-h-0">
-              {/* Chat panel */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <Chat threadId={threadId} onThreadCreated={setThreadId} />
-              </div>
-
-              {/* Task panel - temporary placement until Phase 5 */}
-              <div className="hidden md:flex flex-col w-80 border-l border-border bg-muted/40">
-                <TaskList />
-              </div>
-            </div>
+            <Chat threadId={threadId} onThreadCreated={setThreadId} />
           </AppShell.Focus>
+        }
+        canvas={
+          <AppShell.Canvas>
+            <PanelHeader>
+              <PanelHeader.Title>
+                <span className="flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4" />
+                  Tasks
+                </span>
+              </PanelHeader.Title>
+              <PanelHeader.Actions>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </PanelHeader.Actions>
+            </PanelHeader>
+            <div className="flex-1 overflow-auto">
+              <TaskList />
+            </div>
+          </AppShell.Canvas>
         }
       />
     </AppShell>

@@ -5,8 +5,8 @@ export type ContentMaxWidth = 'narrow' | 'medium' | 'wide' | 'full'
 export interface PanelLayoutState {
   listPanelVisible: boolean
   canvasPanelVisible: boolean
-  listPanelSize: number // percentage
-  canvasPanelSize: number // percentage
+  listPanelSize: number // pixels (react-resizable-panels v4 uses pixels)
+  canvasPanelSize: number // pixels
 }
 
 export interface MobileNavigationState {
@@ -27,6 +27,7 @@ export interface PanelLayoutContextValue {
   // Mobile navigation
   mobile: MobileNavigationState
   isMobile: boolean
+  isHydrated: boolean
   pushPanel: (panel: PanelId) => void
   popPanel: () => void
   showOverlay: (panel: PanelId) => void
@@ -39,8 +40,8 @@ export interface PanelLayoutContextValue {
 export const DEFAULT_LAYOUT: PanelLayoutState = {
   listPanelVisible: true,
   canvasPanelVisible: false,
-  listPanelSize: 20,
-  canvasPanelSize: 25,
+  listPanelSize: 280, // pixels
+  canvasPanelSize: 320, // pixels
 }
 
 export const CONTENT_MAX_WIDTHS: Record<ContentMaxWidth, string> = {
