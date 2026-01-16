@@ -19,6 +19,8 @@ This file captures summaries of development sessions, key decisions made, and ar
 - **Vercel AI Gateway integration** — token/spend tracking, provider fallbacks
 - **Activity dashboard** — settings page with AI usage table (model, tokens, cost)
 - **Design system** — shadcn/ui + Tailwind CSS variables + dark/light mode
+- **Multi-panel layout** — resizable panels, keyboard shortcuts, mobile support
+- **Conversation list** — thread switching, explicit new conversation, auto-generated titles
 
 **Blockers:** None
 
@@ -28,8 +30,9 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 - Working Next.js + Convex application
 - Arlo agent with tools: `createTask`, `listTasks`, `completeTask`
-- Chat UI with message threading
+- Chat UI with message threading and conversation switching
 - Task list sidebar with completion checkboxes
+- Conversation list with thread management
 - Documentation (specs, research, this file)
 
 ### What to Build Next
@@ -610,3 +613,47 @@ Replace `onResize` on individual Panel components with `onLayoutChanged` on the 
 
 - `⌘B` — Toggle list panel (left)
 - `⌘\` — Toggle canvas panel (right)
+
+---
+
+### 2026-01-16 (continued) — Conversation List Feature
+
+**Focus:** Add conversation list to enable thread switching and explicit conversation creation.
+
+**Design Decisions:**
+
+| Decision          | Choice                            | Rationale                                           |
+| ----------------- | --------------------------------- | --------------------------------------------------- |
+| Title generation  | Auto-generated from first message | Simple, no extra API calls, provides useful context |
+| List item content | Minimal (title + timestamp)       | Clean and scannable for MVP                         |
+| Actions           | Explicit new + click to switch    | Clear intent, prevents accidental new threads       |
+
+**Future Enhancements Tracked:**
+
+- AI-generated conversation titles after first exchange
+- Delete conversations
+- Search/filter conversations
+
+**Files Created:**
+
+| File                                                 | Purpose                                         |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| `components/ConversationList.tsx`                    | Conversation list with selection and timestamps |
+| `docs/plans/2026-01-16-conversations-list-design.md` | Design document                                 |
+
+**Files Modified:**
+
+| File                  | Changes                                         |
+| --------------------- | ----------------------------------------------- |
+| `convex/threads.ts`   | Added `list` query using agent component        |
+| `convex/chat.ts`      | Auto-set thread title from first message        |
+| `components/Chat.tsx` | Removed auto-create logic, added empty state    |
+| `app/page.tsx`        | Wired up ConversationList and new thread button |
+
+**Technical Notes:**
+
+- Used `components.agent.threads.listThreadsByUserId` from the Convex agent component
+- Thread titles auto-generated from first 50 characters of first message
+- Relative timestamp formatting: "2m ago", "3h ago", "Yesterday", "Jan 16"
+
+**Result:** Users can now view all conversations, switch between them, and explicitly create new ones via the "+" button.
