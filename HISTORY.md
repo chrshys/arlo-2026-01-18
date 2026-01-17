@@ -6,7 +6,7 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 ## Current State
 
-**Phase:** Foundation complete, ready for Proactive phase
+**Phase:** Foundation + Task Depth complete, ready for Proactive phase
 
 **Implemented:**
 
@@ -21,10 +21,23 @@ This file captures summaries of development sessions, key decisions made, and ar
 - **Design system** — shadcn/ui + Tailwind CSS variables + dark/light mode
 - **Multi-panel layout** — resizable panels, keyboard shortcuts, mobile support
 - **Conversation list** — thread switching, explicit new conversation, auto-generated titles
+- **Task depth** — full task management system (see below)
+
+**Task Depth Features:**
+
+- Priority levels (none/low/medium/high) with visual indicators
+- Due dates with calendar picker and smart presets (Today, Tomorrow, Next week)
+- Multiple reminders per task with context-aware presets
+- Subtasks with completion tracking
+- Hierarchy: Folders → Projects → Sections → Tasks
+- Smart lists: Inbox, Today, Next 7 Days
+- Drag & drop (reorder tasks, move between projects, drag to Today sets due date)
+- Task detail panel with description, due date, reminders, subtasks
+- Creator tracking (user vs Arlo)
 
 **Blockers:** None
 
-**Next Priority:** Proactive features (scheduled functions, morning summary, reminders)
+**Next Priority:** Proactive features (scheduled functions, morning check-ins, task grooming)
 
 ### What Exists
 
@@ -37,14 +50,29 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 ### What to Build Next
 
-**Week 2: Proactive** (from PRODUCT-SPEC.md)
+**Proactive / Chief of Staff Behaviors:**
 
 - Scheduled functions in Convex (cron)
-- Morning summary: "Here's what's due today"
-- Reminder notifications when tasks are due
+- Morning check-in: "Here's your day. 3 tasks due, 1 meeting."
+- Task grooming: "This has been here 2 weeks. Still relevant?"
+- End of day summary: "You completed 4 things. Here's what's rolling to tomorrow."
 - (Optional) Telegram bot for native push notifications
 
-**Milestone achieved:** "I can chat with Arlo on my phone, ask it to create a task, and see the task persist." ✓
+**Visible AI Configuration:**
+
+- Arlo Settings page with editable personality/instructions
+- Skills toggles (task management, email triage, calendar awareness)
+- Activity log showing what Arlo has done
+
+**Future: Pages Data Model:**
+
+- Unified data model where everything is a page (tasks, documents, bookmarks, files)
+- Currently using separate tables; could migrate if unified model proves valuable
+
+**Milestones achieved:**
+
+- ✓ "I can chat with Arlo on my phone, ask it to create a task, and see the task persist."
+- ✓ "I can organize tasks into projects with sections, set priorities, due dates, and reminders."
 
 ---
 
@@ -419,12 +447,17 @@ pnpm test           # Vitest
 | 2026-01-16 | Activity dashboard design             | In-app spend visibility; table-only MVP with settings sidebar for future expansion         |
 | 2026-01-16 | Activity dashboard implemented        | Settings section with activity table; iterates threads for MVP (no cross-thread index)     |
 | 2026-01-16 | Design system with shadcn/ui          | CSS variable-based theming; dark mode from day one; pull components as needed              |
+| 2026-01-17 | Separate tables over unified pages    | Simpler implementation for MVP; can migrate to pages model if it proves valuable           |
+| 2026-01-17 | Task depth before proactive           | Give Arlo more to work with; proactive behaviors need tasks to manage                      |
+| 2026-01-17 | dnd-kit for drag/drop                 | Lightweight, composable, good React integration                                            |
+| 2026-01-17 | Novel for notes editor                | Notion-style blocks, Vercel ecosystem, TipTap/ProseMirror under hood                       |
+| 2026-01-17 | Web-first cross-platform              | Novel needs browser; Electron for desktop, WebView for mobile when needed                  |
 
 ---
 
 ## Architecture Evolution
 
-### Current State (2026-01-16)
+### Current State (2026-01-17)
 
 ```
 ┌─────────────────────────────────────────┐
@@ -706,3 +739,152 @@ Replace `onResize` on individual Panel components with `onLayoutChanged` on the 
 - Hydration guard prevents layout shift on page load
 
 **Result:** Panel sizes now persist across refreshes. Resizing sidebar in chat mode reflects in tasks mode (and vice versa) since both use the same panel IDs and storage key.
+
+---
+
+### 2026-01-17 (continued) — Task Depth Implementation
+
+**Focus:** Build full task management system with hierarchy, properties, and smart organization.
+
+**Schema Additions:**
+
+| Table      | Purpose                                                                     |
+| ---------- | --------------------------------------------------------------------------- |
+| `tasks`    | Extended with priority, dueDate, reminders, projectId, sectionId, sortOrder |
+| `subtasks` | Child tasks with title, completed, sortOrder                                |
+| `folders`  | Top-level grouping (e.g., "Work", "Personal")                               |
+| `projects` | Second level, optionally within folders                                     |
+| `sections` | Within projects (e.g., "Backlog", "In Progress")                            |
+
+**Task Properties:**
+
+- `priority` — none/low/medium/high with color-coded flags
+- `dueDate` — timestamp with calendar picker
+- `reminders` — array of timestamps, multiple per task
+- `description` — optional longer text
+- `createdBy` — 'user' or 'arlo' for tracking origin
+
+**UI Components Created:**
+
+| Component             | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `TaskDetailPanel.tsx` | Right-side panel showing full task details       |
+| `TaskRow.tsx`         | Individual task with checkbox, due badge, flag   |
+| `TaskListPanel.tsx`   | Main list with smart lists and project switching |
+| `SectionGroup.tsx`    | Collapsible section with tasks                   |
+| `TasksView.tsx`       | Full tasks mode layout                           |
+
+**Smart Lists:**
+
+- **Inbox** — Tasks without a project
+- **Today** — Tasks due today
+- **Next 7 Days** — Tasks due within a week
+
+**Drag & Drop:**
+
+- Reorder tasks within sections
+- Move tasks between projects
+- Drag to Today smart list → sets due date to today
+- Uses `@dnd-kit/core`
+
+**Result:** Full task management system comparable to Things 3 or Todoist. Tasks can be organized hierarchically, prioritized, scheduled, and managed through a detail panel.
+
+---
+
+### 2026-01-17 (continued) — Task Detail UX Improvements
+
+**Focus:** Improve date/reminder pickers for better usability.
+
+**Commit:** b8a8325
+
+**Changes:**
+
+1. **Due Date Picker** — Replaced native date input with calendar popover
+   - Quick presets: Today, Tomorrow, Next week
+   - Visual calendar for specific date selection
+   - Relative display: "Today", "Tomorrow" vs. formatted dates
+
+2. **Reminder Picker** — Smart presets based on context
+   - General presets: "In 1 hour", "Tomorrow morning" (9am), "Tomorrow evening" (6pm)
+   - Date-relative presets (when due date set): "1 hour before", "1 day before", "1 week before"
+   - Filters to hide already-selected times
+   - Formatted display: "Today at 2:30 PM", "Tomorrow at 9:00 AM"
+
+3. **Detail Panel Reorder** — Sections now in logical order:
+   - Title → Description → Due Date → Reminders → Subtasks
+
+**Result:** Much faster task entry with one-click presets instead of manual date/time entry.
+
+---
+
+### 2026-01-17 (continued) — Drag Tasks to Projects
+
+**Focus:** Enable dragging tasks to projects and smart lists in the sidebar.
+
+**Commit:** 7bd5d86
+
+**Behavior:**
+
+| Drop Target | Result                                |
+| ----------- | ------------------------------------- |
+| Project     | Moves task to project, clears section |
+| Inbox       | Clears projectId (task becomes inbox) |
+| Today       | Sets dueDate to today                 |
+| Next 7 Days | Sets dueDate to tomorrow              |
+
+**Technical Notes:**
+
+- `ProjectTree` component accepts drop events
+- `moveToProject` mutation handles project/section changes
+- Smart list drops modify task properties rather than moving
+
+**Result:** Quick organization by dragging tasks to their destination.
+
+---
+
+### 2026-01-17 (continued) — Notes Feature Design
+
+**Focus:** Design notes feature to complement tasks, with rich text editing.
+
+**Design Decisions:**
+
+| Decision        | Choice                            | Rationale                                                                      |
+| --------------- | --------------------------------- | ------------------------------------------------------------------------------ |
+| Editor          | Novel (Vercel)                    | Notion-style blocks, TipTap/ProseMirror under hood, Vercel ecosystem alignment |
+| Data model      | Separate `notes` table            | Keeps types clean, matches existing pattern                                    |
+| Content storage | ProseMirror JSON                  | Portable, parseable, Novel's native format                                     |
+| Cross-platform  | Web-first, Electron/WebView later | Novel needs browser; WebView approach viable for mobile                        |
+
+**Notes Table Schema:**
+
+```typescript
+notes: defineTable({
+  title: v.string(),
+  content: v.string(), // ProseMirror JSON
+  projectId: v.optional(v.id('projects')),
+  sectionId: v.optional(v.id('sections')),
+  sortOrder: v.optional(v.number()),
+  createdBy: v.union(v.literal('user'), v.literal('arlo')),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+```
+
+**UI Integration:**
+
+- Notes appear inline with tasks (📄 icon instead of checkbox)
+- Same hierarchy: projects → sections → notes
+- Detail panel with Novel editor
+- Debounced auto-save (no save button)
+
+**Arlo Tools:**
+
+- `createNote` — Create note (Arlo writes markdown, converted to ProseMirror)
+- `listNotes` — List notes by project
+- `updateNote` — Update title or content
+
+**Artifacts Created:**
+
+- `docs/plans/2026-01-17-notes-feature-design.md`
+
+**Result:** Design approved, ready for implementation.
