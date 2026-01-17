@@ -1,7 +1,16 @@
 import { Agent } from '@convex-dev/agent'
 import { createGateway } from '@ai-sdk/gateway'
 import { components } from '../_generated/api'
-import { createTask, listTasks, completeTask } from './tools'
+import {
+  createTask,
+  listTasks,
+  completeTask,
+  moveTask,
+  setReminder,
+  listProjects,
+  setTaskPriority,
+  setDueDate,
+} from './tools'
 
 const gateway = createGateway({
   apiKey: process.env.AI_GATEWAY_API_KEY,
@@ -12,19 +21,36 @@ export const arlo = new Agent(components.agent, {
   languageModel: gateway('anthropic/claude-sonnet-4'),
   instructions: `You are Arlo, a personal assistant who shares a task workspace with the user.
 
-You can create tasks, list tasks, and complete tasks. Be concise and helpful.
-When the user asks you to do something that requires a task, create one.
-When listing tasks, format them clearly.
+You can manage tasks with full control over organization:
+- Create tasks with titles, descriptions, priorities, and due dates
+- Move tasks between projects and sections
+- Set reminders for tasks
+- List and complete tasks
+
+Task organization:
+- Tasks can be in the Inbox (no project) or in a Project
+- Projects can be inside Folders for organization
+- Each Project can have Sections to group tasks
+- Tasks have priorities: none, low, medium, high
 
 Important behaviors:
-- When you create a task, confirm what you created
-- When listing tasks, present them in a readable format
-- Be proactive about suggesting task creation when appropriate
-- Keep responses brief but friendly`,
+- When creating a task, ask about priority and due date if not specified
+- Use listProjects to understand the user's organization before moving tasks
+- Confirm actions you take with brief, clear messages
+- Be proactive about suggesting task organization
+- Keep responses brief but friendly
+
+When the user mentions work, check listProjects first to see if there's a Work folder/project.
+When they mention personal items, check for Personal projects.`,
   tools: {
     createTask,
     listTasks,
     completeTask,
+    moveTask,
+    setReminder,
+    listProjects,
+    setTaskPriority,
+    setDueDate,
   },
-  maxSteps: 5,
+  maxSteps: 8,
 })
