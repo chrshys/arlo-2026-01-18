@@ -1,10 +1,19 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Inbox, Calendar, CalendarDays, Hash, MoreVertical, Plus } from 'lucide-react'
+import {
+  Inbox,
+  Calendar,
+  CalendarDays,
+  Hash,
+  MoreVertical,
+  Plus,
+  CheckSquare,
+  FileText,
+} from 'lucide-react'
 import { PanelHeader } from '@/components/layout/PanelHeader'
 import { useTaskNavigation, type SmartListType } from '@/hooks/use-task-navigation'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Button } from '@/components/ui/button'
 
@@ -22,11 +31,14 @@ interface TaskListHeaderProps {
 }
 
 export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
-  const { selection } = useTaskNavigation()
+  const { selection, setSelectedNoteId } = useTaskNavigation()
   const projects = useQuery(api.projects.list)
+  const createNote = useMutation(api.notes.createFromUI)
 
   const [showMenu, setShowMenu] = useState(false)
+  const [showAddMenu, setShowAddMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const addMenuRef = useRef<HTMLDivElement>(null)
 
   let title = 'Tasks'
   let Icon: React.ComponentType<{ className?: string }> = Hash
@@ -48,17 +60,27 @@ export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false)
       }
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setShowAddMenu(false)
+      }
     }
 
-    if (showMenu) {
+    if (showMenu || showAddMenu) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showMenu])
+  }, [showMenu, showAddMenu])
 
   const handleAddSection = () => {
     setShowMenu(false)
     onAddSection?.()
+  }
+
+  const handleAddNote = async () => {
+    setShowAddMenu(false)
+    const projectId = selection.type === 'project' ? selection.projectId : undefined
+    const noteId = await createNote({ title: 'Untitled', projectId })
+    setSelectedNoteId(noteId)
   }
 
   return (
@@ -70,8 +92,40 @@ export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
         </span>
       </PanelHeader.Title>
 
-      {isProject && (
-        <PanelHeader.Actions>
+      <PanelHeader.Actions>
+        {/* Add button with dropdown */}
+        <div className="relative" ref={addMenuRef}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setShowAddMenu(!showAddMenu)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+
+          {showAddMenu && (
+            <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]">
+              <button
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                onClick={() => setShowAddMenu(false)}
+              >
+                <CheckSquare className="h-3 w-3" />
+                New task
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                onClick={handleAddNote}
+              >
+                <FileText className="h-3 w-3" />
+                New note
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* More menu for projects */}
+        {isProject && (
           <div className="relative" ref={menuRef}>
             <Button
               variant="ghost"
@@ -94,8 +148,8 @@ export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
               </div>
             )}
           </div>
-        </PanelHeader.Actions>
-      )}
+        )}
+      </PanelHeader.Actions>
     </PanelHeader>
   )
 }
