@@ -10,6 +10,7 @@ import { TaskListHeader } from './TaskListHeader'
 import { SectionGroup } from './SectionGroup'
 import { QuickAddTask } from './QuickAddTask'
 import { DraggableTaskRow } from './DraggableTaskRow'
+import { NoteRow } from '@/components/notes/NoteRow'
 import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { createDragId, parseDragId } from '@/lib/drag-utils'
@@ -50,15 +51,31 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
     selection.type === 'project' ? { projectId: selection.projectId } : 'skip'
   )
 
+  // Fetch notes for inbox or project
+  const inboxNotes = useQuery(
+    api.notes.listByProject,
+    selection.type === 'smart-list' && selection.list === 'inbox'
+      ? { projectId: undefined }
+      : 'skip'
+  )
+
+  const projectNotes = useQuery(
+    api.notes.listByProject,
+    selection.type === 'project' ? { projectId: selection.projectId } : 'skip'
+  )
+
   // Determine which tasks to show
   let tasks: typeof inboxTasks = undefined
   let isSmartList = false
+
+  let notes: typeof inboxNotes = undefined
 
   if (selection.type === 'smart-list') {
     isSmartList = true
     switch (selection.list) {
       case 'inbox':
         tasks = inboxTasks
+        notes = inboxNotes
         break
       case 'today':
         tasks = todayTasks
@@ -69,6 +86,7 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
     }
   } else {
     tasks = projectTasks
+    notes = projectNotes
   }
 
   const isLoading = tasks === undefined
@@ -86,6 +104,7 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
           // Smart list view - flat list of tasks
           <SmartListView
             tasks={tasks ?? []}
+            notes={notes ?? []}
             projectId={
               selection.type === 'smart-list' && selection.list === 'inbox' ? undefined : undefined
             }
@@ -94,6 +113,7 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
           // Project view - grouped by sections
           <ProjectView
             tasks={tasks ?? []}
+            notes={notes ?? []}
             sections={sections ?? []}
             projectId={selection.type === 'project' ? selection.projectId : undefined}
             isAddingSection={isAddingSection}
@@ -115,13 +135,24 @@ interface TaskData {
   sortOrder?: number | null
 }
 
+interface NoteData {
+  _id: Id<'notes'>
+  title: string
+  sectionId?: Id<'sections'> | null
+  sortOrder?: number | null
+}
+
 interface SmartListViewProps {
   tasks: TaskData[]
+  notes: NoteData[]
   projectId?: Id<'projects'>
 }
 
-function SmartListView({ tasks }: SmartListViewProps) {
+function SmartListView({ tasks, notes }: SmartListViewProps) {
+  const { selectedNoteId, setSelectedNoteId } = useTaskNavigation()
   const reorderTasks = useMutation(api.tasks.reorder)
+
+  const sortedNotes = notes.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
   const pendingTasks = tasks
     .filter((t) => t.status === 'pending')
@@ -157,16 +188,27 @@ function SmartListView({ tasks }: SmartListViewProps) {
     },
   })
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && notes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-        <p>No tasks</p>
+        <p>No tasks or notes</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-0.5">
+      {/* Notes */}
+      {sortedNotes.map((note) => (
+        <NoteRow
+          key={note._id}
+          noteId={note._id}
+          title={note.title}
+          isSelected={selectedNoteId === note._id}
+          onSelect={setSelectedNoteId}
+        />
+      ))}
+
       <SortableContext
         items={pendingTasks.map((t) => createDragId('task', t._id))}
         strategy={verticalListSortingStrategy}
@@ -208,6 +250,7 @@ function SmartListView({ tasks }: SmartListViewProps) {
 
 interface ProjectViewProps {
   tasks: TaskData[]
+  notes: NoteData[]
   sections: Array<{
     _id: Id<'sections'>
     name: string
@@ -220,6 +263,7 @@ interface ProjectViewProps {
 
 function ProjectView({
   tasks,
+  notes,
   sections,
   projectId,
   isAddingSection,
@@ -229,8 +273,9 @@ function ProjectView({
   const inputRef = useRef<HTMLInputElement>(null)
   const createSection = useMutation(api.sections.create)
 
-  // Tasks without a section
+  // Tasks and notes without a section
   const unsectionedTasks = tasks.filter((t) => !t.sectionId)
+  const unsectionedNotes = notes.filter((n) => !n.sectionId)
 
   // Group tasks by section
   const sortedSections = sections.slice().sort((a, b) => a.sortOrder - b.sortOrder)
@@ -261,20 +306,22 @@ function ProjectView({
 
   return (
     <div>
-      {/* Unsectioned tasks */}
-      {(unsectionedTasks.length > 0 || sections.length === 0) && (
-        <SectionGroup tasks={unsectionedTasks} projectId={projectId} />
+      {/* Unsectioned tasks and notes */}
+      {(unsectionedTasks.length > 0 || unsectionedNotes.length > 0 || sections.length === 0) && (
+        <SectionGroup tasks={unsectionedTasks} notes={unsectionedNotes} projectId={projectId} />
       )}
 
-      {/* Sectioned tasks */}
+      {/* Sectioned tasks and notes */}
       {sortedSections.map((section) => {
         const sectionTasks = tasks.filter((t) => t.sectionId === section._id)
+        const sectionNotes = notes.filter((n) => n.sectionId === section._id)
         return (
           <SectionGroup
             key={section._id}
             sectionId={section._id}
             sectionName={section.name}
             tasks={sectionTasks}
+            notes={sectionNotes}
             projectId={projectId}
           />
         )

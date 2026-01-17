@@ -14,6 +14,7 @@ import type * as arlo_mutations from "../arlo/mutations.js";
 import type * as arlo_tools from "../arlo/tools.js";
 import type * as chat from "../chat.js";
 import type * as folders from "../folders.js";
+import type * as notes from "../notes.js";
 import type * as projects from "../projects.js";
 import type * as sections from "../sections.js";
 import type * as subtasks from "../subtasks.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   "arlo/tools": typeof arlo_tools;
   chat: typeof chat;
   folders: typeof folders;
+  notes: typeof notes;
   projects: typeof projects;
   sections: typeof sections;
   subtasks: typeof subtasks;

@@ -14,6 +14,8 @@ interface TaskNavigationContextValue {
   setSelection: (selection: TaskNavSelection) => void
   selectedTaskId: Id<'tasks'> | null
   setSelectedTaskId: (id: Id<'tasks'> | null) => void
+  selectedNoteId: Id<'notes'> | null
+  setSelectedNoteId: (id: Id<'notes'> | null) => void
   expandedFolders: Set<Id<'folders'>>
   toggleFolder: (folderId: Id<'folders'>) => void
   expandFolder: (folderId: Id<'folders'>) => void
@@ -30,8 +32,20 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
     type: 'smart-list',
     list: 'inbox',
   })
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<'tasks'> | null>(null)
+  const [selectedTaskId, setSelectedTaskIdState] = useState<Id<'tasks'> | null>(null)
+  const [selectedNoteId, setSelectedNoteIdState] = useState<Id<'notes'> | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<Id<'folders'>>>(new Set())
+
+  // Selecting a task clears selected note and vice versa
+  const setSelectedTaskId = (id: Id<'tasks'> | null) => {
+    setSelectedTaskIdState(id)
+    if (id) setSelectedNoteIdState(null)
+  }
+
+  const setSelectedNoteId = (id: Id<'notes'> | null) => {
+    setSelectedNoteIdState(id)
+    if (id) setSelectedTaskIdState(null)
+  }
 
   const toggleFolder = (folderId: Id<'folders'>) => {
     setExpandedFolders((prev) => {
@@ -61,6 +75,8 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
         setSelection,
         selectedTaskId,
         setSelectedTaskId,
+        selectedNoteId,
+        setSelectedNoteId,
         expandedFolders,
         toggleFolder,
         expandFolder,

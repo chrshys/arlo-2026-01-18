@@ -7,6 +7,8 @@ import { DraggableTaskRow } from './DraggableTaskRow'
 import { QuickAddTask } from './QuickAddTask'
 import { Button } from '@/components/ui/button'
 import { Id } from '@/convex/_generated/dataModel'
+import { NoteRow } from '@/components/notes/NoteRow'
+import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMutation } from 'convex/react'
@@ -22,10 +24,17 @@ interface Task {
   sortOrder?: number | null
 }
 
+interface Note {
+  _id: Id<'notes'>
+  title: string
+  sortOrder?: number | null
+}
+
 interface SectionGroupProps {
   sectionId?: Id<'sections'>
   sectionName?: string
   tasks: Task[]
+  notes?: Note[]
   projectId?: Id<'projects'>
   showCompleted?: boolean
 }
@@ -34,9 +43,11 @@ export function SectionGroup({
   sectionId,
   sectionName,
   tasks,
+  notes = [],
   projectId,
   showCompleted = false,
 }: SectionGroupProps) {
+  const { selectedNoteId, setSelectedNoteId } = useTaskNavigation()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [showCompletedTasks, setShowCompletedTasks] = useState(showCompleted)
   const [showMenu, setShowMenu] = useState(false)
@@ -56,6 +67,8 @@ export function SectionGroup({
   const completedTasks = tasks
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  const sortedNotes = notes.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
   useEffect(() => {
     setEditedName(sectionName ?? '')
@@ -221,6 +234,17 @@ export function SectionGroup({
               />
             ))}
           </SortableContext>
+
+          {/* Notes */}
+          {sortedNotes.map((note) => (
+            <NoteRow
+              key={note._id}
+              noteId={note._id}
+              title={note.title}
+              isSelected={selectedNoteId === note._id}
+              onSelect={setSelectedNoteId}
+            />
+          ))}
 
           <QuickAddTask projectId={projectId} sectionId={sectionId} />
 
