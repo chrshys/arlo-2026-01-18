@@ -12,6 +12,7 @@ import {
   pointerWithin,
   rectIntersection,
   type CollisionDetection,
+  useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -21,12 +22,36 @@ import {
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
-import { DraggableFolderItem } from './DraggableFolderItem'
+import { DroppableFolderItem } from './DroppableFolderItem'
 import { DraggableProjectItem } from './DraggableProjectItem'
 import { useState, useCallback, useMemo } from 'react'
 import { Folder, Hash } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type DragItemType = 'folder' | 'project' | null
+
+// Drop zone for removing projects from folders
+function NoFolderDropZone({ isActive }: { isActive: boolean }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: 'no-folder-zone',
+  })
+
+  if (!isActive) return null
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'mt-2 px-3 py-2 rounded-md border-2 border-dashed text-xs text-center transition-colors',
+        isOver
+          ? 'border-primary bg-primary/10 text-primary'
+          : 'border-muted-foreground/30 text-muted-foreground'
+      )}
+    >
+      Drop here to remove from folder
+    </div>
+  )
+}
 
 export function SortableFolderTree() {
   const folders = useQuery(api.folders.list)
@@ -60,6 +85,30 @@ export function SortableFolderTree() {
     [projects]
   )
 
+  // Projects grouped by folder
+  const projectsByFolder = useMemo(() => {
+    type Project = NonNullable<typeof projects>[number]
+    const map = new Map<string, Project[]>()
+    if (!projects) return map
+    for (const project of projects) {
+      if (project.folderId) {
+        const existing = map.get(project.folderId) ?? []
+        map.set(project.folderId, [...existing, project])
+      }
+    }
+    // Sort projects within each folder
+    for (const [folderId, folderProjects] of map) {
+      map.set(
+        folderId,
+        folderProjects.sort((a, b) => a.sortOrder - b.sortOrder)
+      )
+    }
+    return map
+  }, [projects])
+
+  const folderIds = useMemo(() => new Set(sortedFolders.map((f) => f._id)), [sortedFolders])
+  const allProjectIds = useMemo(() => new Set(projects?.map((p) => p._id) ?? []), [projects])
+
   // Custom collision detection that prefers folder drops for projects
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
@@ -67,19 +116,24 @@ export function SortableFolderTree() {
       if (activeType === 'project') {
         const pointerCollisions = pointerWithin(args)
         if (pointerCollisions.length > 0) {
-          // Prefer folder collisions
+          // Check for no-folder zone first
+          const noFolderCollision = pointerCollisions.find((c) => c.id === 'no-folder-zone')
+          if (noFolderCollision) {
+            return [noFolderCollision]
+          }
+          // Then check for folder collisions
           const folderCollision = pointerCollisions.find((c) =>
-            sortedFolders.some((f) => f._id === c.id)
+            folderIds.has(c.id as Id<'folders'>)
           )
           if (folderCollision) {
             return [folderCollision]
           }
         }
       }
-      // Fall back to closest center for sorting
+      // Fall back to rect intersection for sorting
       return rectIntersection(args)
     },
-    [activeType, sortedFolders]
+    [activeType, folderIds]
   )
 
   if (folders === undefined || projects === undefined) {
@@ -89,9 +143,6 @@ export function SortableFolderTree() {
   if (sortedFolders.length === 0 && standaloneProjects.length === 0) {
     return <div className="px-3 py-2 text-sm text-muted-foreground">No folders or projects yet</div>
   }
-
-  const folderIds = new Set(sortedFolders.map((f) => f._id))
-  const allProjectIds = new Set(projects.map((p) => p._id))
 
   const handleDragStart = (event: DragStartEvent) => {
     const id = event.active.id as string
@@ -110,13 +161,23 @@ export function SortableFolderTree() {
     setActiveId(null)
     setActiveType(null)
 
-    if (!over || active.id === over.id) return
+    if (!over) return
+    if (active.id === over.id) return
 
     const activeIdStr = active.id as string
     const overIdStr = over.id as string
 
-    // Check if dragging a project onto a folder
+    // Check if dragging a project
     if (allProjectIds.has(activeIdStr as Id<'projects'>)) {
+      // Dropping onto no-folder zone - remove from folder
+      if (overIdStr === 'no-folder-zone') {
+        await moveProjectToFolder({
+          id: activeIdStr as Id<'projects'>,
+          folderId: undefined,
+        })
+        return
+      }
+
       // Dropping onto a folder
       if (folderIds.has(overIdStr as Id<'folders'>)) {
         await moveProjectToFolder({
@@ -126,7 +187,7 @@ export function SortableFolderTree() {
         return
       }
 
-      // Reordering standalone projects
+      // Dropping onto another standalone project - reorder
       const oldIndex = standaloneProjects.findIndex((p) => p._id === activeIdStr)
       const newIndex = standaloneProjects.findIndex((p) => p._id === overIdStr)
 
@@ -156,9 +217,12 @@ export function SortableFolderTree() {
   // Find active item for overlay
   const activeFolder =
     activeType === 'folder' ? sortedFolders.find((f) => f._id === activeId) : null
-  const activeProject = activeType === 'project' ? projects.find((p) => p._id === activeId) : null
+  const activeProject = activeType === 'project' ? projects?.find((p) => p._id === activeId) : null
 
-  // All sortable items
+  // Check if dragging a project that's in a folder
+  const isDraggingFolderProject = activeProject?.folderId !== undefined
+
+  // All top-level sortable items (folders + standalone projects)
   const allItems = [...sortedFolders.map((f) => f._id), ...standaloneProjects.map((p) => p._id)]
 
   return (
@@ -170,14 +234,18 @@ export function SortableFolderTree() {
     >
       <SortableContext items={allItems} strategy={verticalListSortingStrategy}>
         <div className="space-y-0.5">
-          {/* Folders */}
+          {/* Folders with their projects */}
           {sortedFolders.map((folder) => (
-            <DraggableFolderItem
+            <DroppableFolderItem
               key={folder._id}
               folderId={folder._id}
               name={folder.name}
               color={folder.color}
+              projects={projectsByFolder.get(folder._id) ?? []}
               isDropTarget={activeType === 'project'}
+              onReorderProjects={async (orderedIds) => {
+                await reorderProjects({ orderedIds })
+              }}
             />
           ))}
 
@@ -190,6 +258,9 @@ export function SortableFolderTree() {
               color={project.color}
             />
           ))}
+
+          {/* Drop zone to remove from folder */}
+          <NoFolderDropZone isActive={isDraggingFolderProject} />
         </div>
       </SortableContext>
 
