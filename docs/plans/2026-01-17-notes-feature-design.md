@@ -82,7 +82,6 @@ pnpm add novel
 
 ```tsx
 import { Editor } from 'novel'
-
 ;<Editor
   defaultValue={note.content ? JSON.parse(note.content) : undefined}
   onUpdate={(editor) => {
