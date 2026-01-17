@@ -888,3 +888,53 @@ notes: defineTable({
 - `docs/plans/2026-01-17-notes-feature-design.md`
 
 **Result:** Design approved, ready for implementation.
+
+---
+
+### 2026-01-17 (continued) — Notes Feature Implementation
+
+**Focus:** Implement notes feature with Novel rich text editor and Arlo integration.
+
+**Branch:** `feature/notes`
+
+**Activities:**
+
+1. Added `notes` table to schema with project/section hierarchy
+2. Created notes CRUD (queries + mutations) in `convex/notes.ts`
+3. Added internal mutations for Arlo access
+4. Installed Novel editor (`novel@1.0.2`)
+5. Created UI components: NoteEditor, NoteRow, NoteDetailPanel
+6. Integrated notes into TaskListPanel and SectionGroup
+7. Added "+" dropdown in header with "New task" / "New note" options
+8. Added Arlo tools: createNote, listNotes, updateNote
+
+**Files Created:**
+
+| File                                   | Purpose                                       |
+| -------------------------------------- | --------------------------------------------- |
+| `components/notes/NoteEditor.tsx`      | Novel editor wrapper with debounced auto-save |
+| `components/notes/NoteRow.tsx`         | Note list item with file icon                 |
+| `components/notes/NoteDetailPanel.tsx` | Detail view with title editing and delete     |
+| `convex/notes.ts`                      | Notes queries and mutations                   |
+
+**Files Modified:**
+
+| File                                   | Changes                                     |
+| -------------------------------------- | ------------------------------------------- |
+| `convex/schema.ts`                     | Added `notes` table                         |
+| `convex/arlo/tools.ts`                 | Added createNote, listNotes, updateNote     |
+| `convex/arlo/agent.ts`                 | Registered note tools, updated instructions |
+| `hooks/use-task-navigation.tsx`        | Added selectedNoteId state                  |
+| `components/tasks/TaskListPanel.tsx`   | Query and render notes                      |
+| `components/tasks/SectionGroup.tsx`    | Render NoteRow components                   |
+| `components/tasks/TaskDetailPanel.tsx` | Show NoteDetailPanel when note selected     |
+| `components/tasks/TaskListHeader.tsx`  | Added "+" dropdown with note creation       |
+
+**Technical Notes:**
+
+- Novel 1.0 uses `EditorRoot` + `EditorContent` API (different from plan's simpler `Editor` export)
+- Selecting a note clears selected task and vice versa (mutual exclusion)
+- Notes content stored as ProseMirror JSON string
+- Arlo can create/list/update notes via internal mutations
+
+**Result:** Notes feature fully implemented. Users can create, edit, and organize notes alongside tasks. Arlo can manage notes via chat.
