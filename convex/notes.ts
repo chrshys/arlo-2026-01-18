@@ -1,4 +1,4 @@
-import { query, mutation } from './_generated/server'
+import { query, mutation, internalMutation, internalQuery } from './_generated/server'
 import { v } from 'convex/values'
 
 export const list = query({
@@ -126,5 +126,56 @@ export const moveToProject = mutation({
       sortOrder: minSortOrder - 1,
       updatedAt: Date.now(),
     })
+  },
+})
+
+// Internal mutation for Arlo to create notes
+export const create = internalMutation({
+  args: {
+    title: v.string(),
+    content: v.optional(v.string()),
+    projectId: v.optional(v.id('projects')),
+    createdBy: v.union(v.literal('user'), v.literal('arlo')),
+  },
+  handler: async (ctx, args) => {
+    const existingNotes = args.projectId
+      ? await ctx.db
+          .query('notes')
+          .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+          .collect()
+      : await ctx.db
+          .query('notes')
+          .filter((q) => q.eq(q.field('projectId'), undefined))
+          .collect()
+
+    const maxSortOrder = existingNotes.reduce((max, n) => Math.max(max, n.sortOrder ?? 0), -1)
+
+    const now = Date.now()
+    return await ctx.db.insert('notes', {
+      title: args.title,
+      content: args.content ?? '',
+      projectId: args.projectId,
+      sectionId: undefined,
+      sortOrder: maxSortOrder + 1,
+      createdBy: args.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    })
+  },
+})
+
+export const listAll = internalQuery({
+  handler: async (ctx) => {
+    return await ctx.db.query('notes').order('desc').collect()
+  },
+})
+
+export const updateContentInternal = internalMutation({
+  args: {
+    id: v.id('notes'),
+    content: v.string(),
+  },
+  handler: async (ctx, { id, content }) => {
+    await ctx.db.patch(id, { content, updatedAt: Date.now() })
   },
 })
