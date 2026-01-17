@@ -8,6 +8,7 @@ import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
+import { createDragId } from '@/lib/drag-utils'
 
 interface DraggableTaskRowProps {
   taskId: Id<'tasks'>
@@ -66,7 +67,7 @@ export function DraggableTaskRow({
   const reopenTask = useMutation(api.tasks.reopen)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: taskId,
+    id: createDragId('task', taskId),
   })
 
   const style = {
@@ -101,7 +102,7 @@ export function DraggableTaskRow({
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
         isCompleted && 'opacity-60',
-        isDragging && 'opacity-50 bg-accent shadow-lg'
+        isDragging && 'opacity-0'
       )}
     >
       <div

@@ -16,6 +16,7 @@ interface TaskNavigationContextValue {
   setSelectedTaskId: (id: Id<'tasks'> | null) => void
   expandedFolders: Set<Id<'folders'>>
   toggleFolder: (folderId: Id<'folders'>) => void
+  expandFolder: (folderId: Id<'folders'>) => void
 }
 
 const TaskNavigationContext = createContext<TaskNavigationContextValue | undefined>(undefined)
@@ -44,6 +45,15 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
     })
   }
 
+  const expandFolder = (folderId: Id<'folders'>) => {
+    setExpandedFolders((prev) => {
+      if (prev.has(folderId)) return prev
+      const next = new Set(prev)
+      next.add(folderId)
+      return next
+    })
+  }
+
   return (
     <TaskNavigationContext.Provider
       value={{
@@ -53,6 +63,7 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
         setSelectedTaskId,
         expandedFolders,
         toggleFolder,
+        expandFolder,
       }}
     >
       {children}

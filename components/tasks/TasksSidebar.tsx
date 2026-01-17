@@ -52,14 +52,14 @@ export function TasksSidebar({ className }: TasksSidebarProps) {
 
         {/* Folders & Projects */}
         <div className="border-t border-border pt-2">
-          <div className="flex items-center justify-between px-3 py-1 mb-1">
+          <div className="flex items-center justify-between px-2 py-1 mb-1">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Projects
             </span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5"
+              className="h-6 w-6"
               onClick={handleAddFolder}
               title="New folder"
             >

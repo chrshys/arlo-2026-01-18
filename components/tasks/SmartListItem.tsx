@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { useTaskNavigation, type SmartListType } from '@/hooks/use-task-navigation'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { useDroppable } from '@dnd-kit/core'
+import { useUnifiedDrag } from './TasksView'
 
 interface SmartListItemProps {
   list: SmartListType
@@ -21,8 +23,16 @@ const SMART_LIST_CONFIG: Record<
 
 export function SmartListItem({ list }: SmartListItemProps) {
   const { selection, setSelection, setSelectedTaskId } = useTaskNavigation()
+  const { activeType } = useUnifiedDrag()
   const config = SMART_LIST_CONFIG[list]
   const Icon = config.icon
+
+  // Only inbox and today are drop targets
+  const isDropTarget = list === 'inbox' || list === 'today'
+  const { isOver, setNodeRef } = useDroppable({
+    id: `smart-list::${list}`,
+    disabled: !isDropTarget,
+  })
 
   // Get task counts
   const inboxTasks = useQuery(api.tasks.listByProject, { projectId: undefined })
@@ -42,6 +52,8 @@ export function SmartListItem({ list }: SmartListItemProps) {
 
   const isSelected = selection.type === 'smart-list' && selection.list === list
   const count = getCount()
+  const isDraggingTask = activeType === 'task'
+  const showDropHighlight = isDropTarget && isDraggingTask
 
   const handleClick = () => {
     setSelection({ type: 'smart-list', list })
@@ -50,11 +62,14 @@ export function SmartListItem({ list }: SmartListItemProps) {
 
   return (
     <button
+      ref={setNodeRef}
       onClick={handleClick}
       className={cn(
         'w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
         'hover:bg-accent/50',
-        isSelected && 'bg-accent text-accent-foreground'
+        isSelected && 'bg-accent text-accent-foreground',
+        showDropHighlight && 'bg-primary/5',
+        isOver && 'bg-primary/15'
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />

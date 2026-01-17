@@ -216,6 +216,51 @@ export const move = mutation({
   },
 })
 
+// Move task to a different project (drag and drop)
+// Clears section and places task at the top of the target project's unsectioned area
+export const moveToProject = mutation({
+  args: {
+    id: v.id('tasks'),
+    projectId: v.optional(v.id('projects')),
+  },
+  handler: async (ctx, { id, projectId }) => {
+    // Get existing tasks in the target project (unsectioned only)
+    const targetTasks = projectId
+      ? await ctx.db
+          .query('tasks')
+          .withIndex('by_project', (q) => q.eq('projectId', projectId))
+          .collect()
+      : await ctx.db
+          .query('tasks')
+          .filter((q) => q.eq(q.field('projectId'), undefined))
+          .collect()
+
+    // Filter to unsectioned tasks only
+    const unsectionedTasks = targetTasks.filter((t) => t.sectionId === undefined)
+
+    // Find minimum sortOrder to place new task at top
+    const minSortOrder = unsectionedTasks.reduce((min, t) => Math.min(min, t.sortOrder ?? 0), 0)
+
+    await ctx.db.patch(id, {
+      projectId,
+      sectionId: undefined,
+      sortOrder: minSortOrder - 1,
+    })
+  },
+})
+
+// Set due date to today (for dropping on Today smart list)
+export const setDueToday = mutation({
+  args: {
+    id: v.id('tasks'),
+  },
+  handler: async (ctx, { id }) => {
+    const now = new Date()
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    await ctx.db.patch(id, { dueDate: startOfDay })
+  },
+})
+
 // Add reminder
 export const addReminder = mutation({
   args: {
