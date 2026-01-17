@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useQuery, useMutation } from 'convex/react'
@@ -9,20 +10,9 @@ import { TaskListHeader } from './TaskListHeader'
 import { SectionGroup } from './SectionGroup'
 import { QuickAddTask } from './QuickAddTask'
 import { DraggableTaskRow } from './DraggableTaskRow'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { createDragId, parseDragId } from '@/lib/drag-utils'
 
 interface TaskListPanelProps {
   className?: string
@@ -30,6 +20,7 @@ interface TaskListPanelProps {
 
 export function TaskListPanel({ className }: TaskListPanelProps) {
   const { selection } = useTaskNavigation()
+  const [isAddingSection, setIsAddingSection] = useState(false)
 
   // Fetch tasks based on selection
   const inboxTasks = useQuery(
@@ -84,7 +75,7 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
 
   return (
     <div className={cn('h-full flex flex-col', className)}>
-      <TaskListHeader />
+      <TaskListHeader onAddSection={() => setIsAddingSection(true)} />
 
       <div className="flex-1 overflow-auto p-2">
         {isLoading ? (
@@ -105,6 +96,8 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
             tasks={tasks ?? []}
             sections={sections ?? []}
             projectId={selection.type === 'project' ? selection.projectId : undefined}
+            isAddingSection={isAddingSection}
+            onAddSectionDone={() => setIsAddingSection(false)}
           />
         )}
       </div>
@@ -130,17 +123,6 @@ interface SmartListViewProps {
 function SmartListView({ tasks }: SmartListViewProps) {
   const reorderTasks = useMutation(api.tasks.reorder)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
   const pendingTasks = tasks
     .filter((t) => t.status === 'pending')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
@@ -149,22 +131,31 @@ function SmartListView({ tasks }: SmartListViewProps) {
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
+  // Listen to drag events from parent DndContext for task reordering
+  useDndMonitor({
+    onDragEnd: async (event: DragEndEvent) => {
+      const { active, over } = event
 
-    if (over && active.id !== over.id) {
-      const oldIndex = pendingTasks.findIndex((t) => t._id === active.id)
-      const newIndex = pendingTasks.findIndex((t) => t._id === over.id)
+      if (!over || active.id === over.id) return
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = [...pendingTasks]
-        const [removed] = reordered.splice(oldIndex, 1)
-        reordered.splice(newIndex, 0, removed)
+      const activeParsed = parseDragId(active.id as string)
+      const overParsed = parseDragId(over.id as string)
 
-        await reorderTasks({ orderedIds: reordered.map((t) => t._id) })
+      // Only handle task-to-task reordering
+      if (activeParsed?.type === 'task' && overParsed?.type === 'task') {
+        const oldIndex = pendingTasks.findIndex((t) => t._id === activeParsed.id)
+        const newIndex = pendingTasks.findIndex((t) => t._id === overParsed.id)
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = [...pendingTasks]
+          const [removed] = reordered.splice(oldIndex, 1)
+          reordered.splice(newIndex, 0, removed)
+
+          await reorderTasks({ orderedIds: reordered.map((t) => t._id) })
+        }
       }
-    }
-  }
+    },
+  })
 
   if (tasks.length === 0) {
     return (
@@ -176,23 +167,21 @@ function SmartListView({ tasks }: SmartListViewProps) {
 
   return (
     <div className="space-y-0.5">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={pendingTasks.map((t) => t._id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {pendingTasks.map((task) => (
-            <DraggableTaskRow
-              key={task._id}
-              taskId={task._id}
-              title={task.title}
-              status={task.status}
-              priority={task.priority}
-              dueDate={task.dueDate}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+      <SortableContext
+        items={pendingTasks.map((t) => createDragId('task', t._id))}
+        strategy={verticalListSortingStrategy}
+      >
+        {pendingTasks.map((task) => (
+          <DraggableTaskRow
+            key={task._id}
+            taskId={task._id}
+            title={task.title}
+            status={task.status}
+            priority={task.priority}
+            dueDate={task.dueDate}
+          />
+        ))}
+      </SortableContext>
 
       <QuickAddTask />
 
@@ -225,14 +214,50 @@ interface ProjectViewProps {
     sortOrder: number
   }>
   projectId?: Id<'projects'>
+  isAddingSection?: boolean
+  onAddSectionDone?: () => void
 }
 
-function ProjectView({ tasks, sections, projectId }: ProjectViewProps) {
+function ProjectView({
+  tasks,
+  sections,
+  projectId,
+  isAddingSection,
+  onAddSectionDone,
+}: ProjectViewProps) {
+  const [sectionName, setSectionName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const createSection = useMutation(api.sections.create)
+
   // Tasks without a section
   const unsectionedTasks = tasks.filter((t) => !t.sectionId)
 
   // Group tasks by section
   const sortedSections = sections.slice().sort((a, b) => a.sortOrder - b.sortOrder)
+
+  useEffect(() => {
+    if (isAddingSection && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isAddingSection])
+
+  const handleSubmit = async () => {
+    const trimmedName = sectionName.trim()
+    if (trimmedName && projectId) {
+      await createSection({ name: trimmedName, projectId })
+    }
+    setSectionName('')
+    onAddSectionDone?.()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSubmit()
+    } else if (e.key === 'Escape') {
+      setSectionName('')
+      onAddSectionDone?.()
+    }
+  }
 
   return (
     <div>
@@ -254,6 +279,22 @@ function ProjectView({ tasks, sections, projectId }: ProjectViewProps) {
           />
         )
       })}
+
+      {/* Add section input */}
+      {isAddingSection && (
+        <div className="px-3 py-2 mt-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={sectionName}
+            onChange={(e) => setSectionName(e.target.value)}
+            onBlur={handleSubmit}
+            onKeyDown={handleKeyDown}
+            placeholder="Section name"
+            className="w-full text-sm font-medium bg-transparent border-b border-primary outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+      )}
     </div>
   )
 }
