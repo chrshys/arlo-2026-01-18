@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { EditorRoot, EditorContent, JSONContent, useEditor } from 'novel'
+import { useCallback, useEffect, useRef, useMemo } from 'react'
+import { EditorRoot, EditorContent, JSONContent, useEditor, StarterKit } from 'novel'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -54,14 +54,24 @@ function EditorInner({ noteId }: { noteId: Id<'notes'> }) {
 }
 
 export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
-  const parsedContent: JSONContent | undefined = initialContent
-    ? JSON.parse(initialContent)
-    : undefined
+  const extensions = useMemo(() => [StarterKit], [])
+
+  const parsedContent: JSONContent | undefined = useMemo(() => {
+    if (!initialContent || initialContent === '') {
+      return undefined
+    }
+    try {
+      return JSON.parse(initialContent)
+    } catch {
+      return undefined
+    }
+  }, [initialContent])
 
   return (
     <div className="min-h-[300px] w-full">
       <EditorRoot>
         <EditorContent
+          extensions={extensions}
           initialContent={parsedContent}
           className="prose dark:prose-invert prose-sm max-w-none"
         >
