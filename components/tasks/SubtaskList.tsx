@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
+import { Button } from '@/components/ui/button'
 import { SubtaskItem } from './SubtaskItem'
 
 interface SubtaskListProps {
@@ -86,13 +87,15 @@ export function SubtaskList({ taskId }: SubtaskListProps) {
             />
           </form>
         ) : (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-muted-foreground"
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground w-full rounded hover:bg-muted/50"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-2" />
             Add subtask
-          </button>
+          </Button>
         )}
       </div>
     </div>

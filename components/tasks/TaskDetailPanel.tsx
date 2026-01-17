@@ -45,19 +45,10 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
       <TaskDetailHeader taskId={task._id} title={task.title} />
 
       <div className="flex-1 overflow-auto">
-        <TaskProperties taskId={task._id} dueDate={task.dueDate} priority={task.priority} />
-
-        <div className="border-t border-border">
-          <ReminderList taskId={task._id} reminders={task.reminders} />
-        </div>
-
-        <div className="border-t border-border">
-          <SubtaskList taskId={task._id} />
-        </div>
-
-        <div className="border-t border-border">
-          <TaskDescription taskId={task._id} description={task.description} />
-        </div>
+        <TaskDescription taskId={task._id} description={task.description} />
+        <TaskProperties taskId={task._id} dueDate={task.dueDate} />
+        <ReminderList taskId={task._id} reminders={task.reminders} dueDate={task.dueDate} />
+        <SubtaskList taskId={task._id} />
       </div>
     </div>
   )

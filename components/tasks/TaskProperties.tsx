@@ -1,49 +1,39 @@
 'use client'
 
-import { Calendar, Flag, X } from 'lucide-react'
+import { useState } from 'react'
+import { Calendar as CalendarIcon, Plus, X } from 'lucide-react'
+import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
-import { cn } from '@/lib/utils'
-
-type Priority = 'none' | 'low' | 'medium' | 'high'
 
 interface TaskPropertiesProps {
   taskId: Id<'tasks'>
   dueDate?: number | null
-  priority?: Priority | null
-}
-
-const PRIORITY_CONFIG: Record<Priority, { label: string; color: string }> = {
-  none: { label: 'None', color: 'text-muted-foreground' },
-  low: { label: 'Low', color: 'text-blue-500' },
-  medium: { label: 'Medium', color: 'text-orange-500' },
-  high: { label: 'High', color: 'text-red-500' },
 }
 
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp)
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
-  })
+  const now = new Date()
+  if (date.getFullYear() !== now.getFullYear()) {
+    return format(date, 'EEE, MMM d, yyyy')
+  }
+  return format(date, 'EEE, MMM d')
 }
 
-export function TaskProperties({ taskId, dueDate, priority }: TaskPropertiesProps) {
+export function TaskProperties({ taskId, dueDate }: TaskPropertiesProps) {
+  const [open, setOpen] = useState(false)
   const updateTask = useMutation(api.tasks.update)
   const clearField = useMutation(api.tasks.clearField)
 
-  const currentPriority = priority ?? 'none'
-
-  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    if (value) {
-      const date = new Date(value)
+  const handleDateSelect = async (date: Date | undefined) => {
+    if (date) {
       date.setHours(23, 59, 59, 999)
       await updateTask({ id: taskId, dueDate: date.getTime() })
+      setOpen(false)
     }
   }
 
@@ -51,58 +41,128 @@ export function TaskProperties({ taskId, dueDate, priority }: TaskPropertiesProp
     await clearField({ id: taskId, field: 'dueDate' })
   }
 
-  const handlePriorityChange = async (newPriority: Priority) => {
-    await updateTask({ id: taskId, priority: newPriority })
-  }
+  const selectedDate = dueDate ? new Date(dueDate) : undefined
 
   return (
-    <div className="px-4 py-3 space-y-4">
-      {/* Due Date */}
-      <div>
-        <label className="text-sm font-medium text-muted-foreground mb-2 block">Due Date</label>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="date"
-              value={dueDate ? new Date(dueDate).toISOString().split('T')[0] : ''}
-              onChange={handleDateChange}
-              className="w-full pl-10 pr-3 py-2 text-sm rounded border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          {dueDate && (
+    <div className="px-4 py-3">
+      <label className="text-sm font-medium text-muted-foreground mb-2 block">Due date</label>
+      {dueDate ? (
+        <div className="flex items-center gap-2 p-2 rounded bg-muted/50">
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-2 flex-1 min-w-0">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">{formatDate(dueDate)}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="flex">
+                <div className="border-r p-2 space-y-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-sm"
+                    onClick={() => handleDateSelect(new Date())}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-sm"
+                    onClick={() => {
+                      const tomorrow = new Date()
+                      tomorrow.setDate(tomorrow.getDate() + 1)
+                      handleDateSelect(tomorrow)
+                    }}
+                  >
+                    Tomorrow
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-sm"
+                    onClick={() => {
+                      const nextWeek = new Date()
+                      nextWeek.setDate(nextWeek.getDate() + 7)
+                      handleDateSelect(nextWeek)
+                    }}
+                  >
+                    Next week
+                  </Button>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateSelect}
+                  defaultMonth={selectedDate}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
+            onClick={handleClearDate}
+            title="Clear due date"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={handleClearDate}
-              title="Clear due date"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        {dueDate && <p className="text-sm text-muted-foreground mt-1">{formatDate(dueDate)}</p>}
-      </div>
-
-      {/* Priority */}
-      <div>
-        <label className="text-sm font-medium text-muted-foreground mb-2 block">Priority</label>
-        <div className="flex gap-1">
-          {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => (
-            <Button
-              key={p}
-              variant={currentPriority === p ? 'secondary' : 'ghost'}
               size="sm"
-              className={cn('flex-1', currentPriority === p && PRIORITY_CONFIG[p].color)}
-              onClick={() => handlePriorityChange(p)}
+              className="w-full justify-start text-muted-foreground"
             >
-              {p !== 'none' && <Flag className="h-3 w-3 mr-1" />}
-              {PRIORITY_CONFIG[p].label}
+              <Plus className="h-4 w-4 mr-2" />
+              Add date
             </Button>
-          ))}
-        </div>
-      </div>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex">
+              <div className="border-r p-2 space-y-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleDateSelect(new Date())}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-sm"
+                  onClick={() => {
+                    const tomorrow = new Date()
+                    tomorrow.setDate(tomorrow.getDate() + 1)
+                    handleDateSelect(tomorrow)
+                  }}
+                >
+                  Tomorrow
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-sm"
+                  onClick={() => {
+                    const nextWeek = new Date()
+                    nextWeek.setDate(nextWeek.getDate() + 7)
+                    handleDateSelect(nextWeek)
+                  }}
+                >
+                  Next week
+                </Button>
+              </div>
+              <Calendar mode="single" selected={selectedDate} onSelect={handleDateSelect} />
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   )
 }
