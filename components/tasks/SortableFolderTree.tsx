@@ -109,6 +109,20 @@ export function SortableFolderTree() {
   const folderIds = useMemo(() => new Set(sortedFolders.map((f) => f._id)), [sortedFolders])
   const allProjectIds = useMemo(() => new Set(projects?.map((p) => p._id) ?? []), [projects])
 
+  // Sortable items depend on what's being dragged:
+  // - Dragging folder: only folders are sortable (so folders reorder among themselves)
+  // - Dragging project: only standalone projects are sortable (folders stay fixed as drop targets)
+  // - Not dragging: all items (default state)
+  const sortableItems = useMemo(() => {
+    if (activeType === 'folder') {
+      return sortedFolders.map((f) => f._id)
+    }
+    if (activeType === 'project') {
+      return standaloneProjects.map((p) => p._id)
+    }
+    return [...sortedFolders.map((f) => f._id), ...standaloneProjects.map((p) => p._id)]
+  }, [activeType, sortedFolders, standaloneProjects])
+
   // Custom collision detection that prefers folder drops for projects
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
@@ -222,9 +236,6 @@ export function SortableFolderTree() {
   // Check if dragging a project that's in a folder
   const isDraggingFolderProject = activeProject?.folderId !== undefined
 
-  // All top-level sortable items (folders + standalone projects)
-  const allItems = [...sortedFolders.map((f) => f._id), ...standaloneProjects.map((p) => p._id)]
-
   return (
     <DndContext
       sensors={sensors}
@@ -232,7 +243,7 @@ export function SortableFolderTree() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext items={allItems} strategy={verticalListSortingStrategy}>
+      <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
         <div className="space-y-0.5">
           {/* Folders with their projects */}
           {sortedFolders.map((folder) => (
