@@ -54,6 +54,19 @@ export default defineSchema({
     createdAt: v.number(),
   }).index('by_task', ['taskId']),
 
+  notes: defineTable({
+    title: v.string(),
+    content: v.string(), // ProseMirror JSON
+    projectId: v.optional(v.id('projects')),
+    sectionId: v.optional(v.id('sections')),
+    sortOrder: v.optional(v.number()),
+    createdBy: v.union(v.literal('user'), v.literal('arlo')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_project', ['projectId'])
+    .index('by_updated', ['updatedAt']),
+
   activity: defineTable({
     action: v.string(),
     actor: v.union(v.literal('user'), v.literal('arlo')),
