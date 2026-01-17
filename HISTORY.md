@@ -938,3 +938,40 @@ notes: defineTable({
 - Arlo can create/list/update notes via internal mutations
 
 **Result:** Notes feature fully implemented. Users can create, edit, and organize notes alongside tasks. Arlo can manage notes via chat.
+
+---
+
+### 2026-01-17 (continued) — Notes Feature Bug Fixes
+
+**Focus:** Fix runtime errors and UX issues discovered during testing.
+
+**Bug 1: Novel Editor Schema Error**
+
+- **Symptom:** `RangeError: Schema is missing its top node type ('doc')` when opening a note
+- **Cause:** Novel 1.0 requires explicit extension configuration; without `StarterKit`, ProseMirror has no document schema
+- **Fix:** Import `StarterKit` from `novel` and pass it via `extensions` prop to `EditorContent`
+
+**Bug 2: Title Input Race Condition**
+
+- **Symptom:** Letters deleted as they're typed in note title field
+- **Cause:**
+  1. Every keystroke triggered `updateNote` mutation immediately
+  2. Mutation caused `note` query to refresh
+  3. `useEffect` reset local `title` state from server value, overwriting user input
+- **Fix:**
+  1. Only sync from server on initial load or when `noteId` changes (track with ref)
+  2. Debounce title save (300ms) to reduce mutation frequency
+
+**Files Modified:**
+
+| File                                   | Changes                                         |
+| -------------------------------------- | ----------------------------------------------- |
+| `components/notes/NoteEditor.tsx`      | Added `StarterKit` extension, safe JSON parsing |
+| `components/notes/NoteDetailPanel.tsx` | Debounced title save, fixed server sync logic   |
+
+**Commits:**
+
+- `658a9f9` - fix(notes): add StarterKit extensions to Novel editor
+- `e7d9e85` - fix(notes): debounce title updates to prevent input race condition
+
+**Result:** Notes editor and title input now work correctly.
