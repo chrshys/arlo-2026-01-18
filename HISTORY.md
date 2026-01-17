@@ -1025,3 +1025,54 @@ className="... [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6
 | `components/notes/NoteEditor.tsx` | Added ProseMirror element styles, SSR fix, cleanup |
 
 **Lesson Learned:** When editor commands "don't work," verify the document state is actually changing before assuming command execution is the problem. CSS can make successful DOM updates invisible.
+
+---
+
+### 2026-01-17 (continued) — Plus Button Fixes & Inline Note Editing
+
+**Focus:** Fix task creation from plus button and improve note creation UX with inline title editing.
+
+**Issues Fixed:**
+
+1. **Task creation from plus button didn't work** — "New task" menu item just closed the menu without creating anything
+2. **Note creation UX** — Created note but required mouse navigation to start typing
+
+**Solution: Task Creation**
+
+Added callback chain from header to QuickAddTask component:
+
+- `TaskListHeader` gets `onAddTask` prop
+- `TaskListPanel` manages `isAddingTask` state
+- `QuickAddTask` accepts `autoOpen` prop that triggers focus when true
+- Props passed through `SmartListView`, `ProjectView`, and `SectionGroup`
+
+**Solution: Inline Note Editing**
+
+When creating a note, the NoteRow becomes immediately editable:
+
+1. Note created with empty title (not "Untitled")
+2. `editingNoteId` added to navigation context
+3. `NoteRow` shows inline input when `editingNoteId` matches
+4. **Enter** → saves title, opens note detail panel, auto-focuses editor
+5. **Escape** → cancels editing
+6. **Blur** → saves with "Untitled" fallback
+
+**Auto-Focus Editor:**
+
+- Added `shouldFocusNoteEditor` flag to navigation context
+- Set to `true` when pressing Enter to save inline title
+- `NoteEditor` checks flag when editor becomes ready, focuses, then clears flag
+
+**Files Modified:**
+
+| File                                  | Changes                                              |
+| ------------------------------------- | ---------------------------------------------------- |
+| `hooks/use-task-navigation.tsx`       | Added `editingNoteId`, `shouldFocusNoteEditor` state |
+| `components/tasks/TaskListHeader.tsx` | Added `onAddTask` callback, updated note creation    |
+| `components/tasks/QuickAddTask.tsx`   | Added `autoOpen`/`onAutoOpenHandled` props           |
+| `components/tasks/TaskListPanel.tsx`  | Wired `isAddingTask` state through views             |
+| `components/tasks/SectionGroup.tsx`   | Passed `isAddingTask` props to QuickAddTask          |
+| `components/notes/NoteRow.tsx`        | Added inline editing mode                            |
+| `components/notes/NoteEditor.tsx`     | Added auto-focus on mount when flag set              |
+
+**Result:** Seamless keyboard-only flow: click "New note" → type title → Enter → cursor in editor body.

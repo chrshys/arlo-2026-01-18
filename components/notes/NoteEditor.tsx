@@ -32,6 +32,7 @@ import {
   Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -258,6 +259,7 @@ function EditorInner({
 }
 
 export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
+  const { shouldFocusNoteEditor, setShouldFocusNoteEditor } = useTaskNavigation()
   const extensions = useMemo(
     () => [
       StarterKit.configure({
@@ -276,6 +278,12 @@ export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
     []
   )
   const focusEditorRef = useRef<(() => void) | null>(null)
+  const shouldFocusRef = useRef(shouldFocusNoteEditor)
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    shouldFocusRef.current = shouldFocusNoteEditor
+  }, [shouldFocusNoteEditor])
 
   const parsedContent: JSONContent | undefined = useMemo(() => {
     if (!initialContent || initialContent === '') {
@@ -288,9 +296,17 @@ export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
     }
   }, [initialContent])
 
-  const handleEditorReady = useCallback((focus: () => void) => {
-    focusEditorRef.current = focus
-  }, [])
+  const handleEditorReady = useCallback(
+    (focus: () => void) => {
+      focusEditorRef.current = focus
+      // Auto-focus if flag is set
+      if (shouldFocusRef.current) {
+        focus()
+        setShouldFocusNoteEditor(false)
+      }
+    },
+    [setShouldFocusNoteEditor]
+  )
 
   const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // Only focus if clicking directly on the container, not on editor content

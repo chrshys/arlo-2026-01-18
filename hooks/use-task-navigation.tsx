@@ -16,6 +16,10 @@ interface TaskNavigationContextValue {
   setSelectedTaskId: (id: Id<'tasks'> | null) => void
   selectedNoteId: Id<'notes'> | null
   setSelectedNoteId: (id: Id<'notes'> | null) => void
+  editingNoteId: Id<'notes'> | null
+  setEditingNoteId: (id: Id<'notes'> | null) => void
+  shouldFocusNoteEditor: boolean
+  setShouldFocusNoteEditor: (value: boolean) => void
   expandedFolders: Set<Id<'folders'>>
   toggleFolder: (folderId: Id<'folders'>) => void
   expandFolder: (folderId: Id<'folders'>) => void
@@ -34,6 +38,8 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
   })
   const [selectedTaskId, setSelectedTaskIdState] = useState<Id<'tasks'> | null>(null)
   const [selectedNoteId, setSelectedNoteIdState] = useState<Id<'notes'> | null>(null)
+  const [editingNoteId, setEditingNoteId] = useState<Id<'notes'> | null>(null)
+  const [shouldFocusNoteEditor, setShouldFocusNoteEditor] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<Id<'folders'>>>(new Set())
 
   // Selecting a task clears selected note and vice versa
@@ -77,6 +83,10 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
         setSelectedTaskId,
         selectedNoteId,
         setSelectedNoteId,
+        editingNoteId,
+        setEditingNoteId,
+        shouldFocusNoteEditor,
+        setShouldFocusNoteEditor,
         expandedFolders,
         toggleFolder,
         expandFolder,

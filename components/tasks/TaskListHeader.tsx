@@ -28,10 +28,11 @@ const SMART_LIST_CONFIG: Record<
 
 interface TaskListHeaderProps {
   onAddSection?: () => void
+  onAddTask?: () => void
 }
 
-export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
-  const { selection, setSelectedNoteId } = useTaskNavigation()
+export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps) {
+  const { selection, setEditingNoteId } = useTaskNavigation()
   const projects = useQuery(api.projects.list)
   const createNote = useMutation(api.notes.createFromUI)
 
@@ -79,8 +80,8 @@ export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
   const handleAddNote = async () => {
     setShowAddMenu(false)
     const projectId = selection.type === 'project' ? selection.projectId : undefined
-    const noteId = await createNote({ title: 'Untitled', projectId })
-    setSelectedNoteId(noteId)
+    const noteId = await createNote({ title: '', projectId })
+    setEditingNoteId(noteId)
   }
 
   return (
@@ -108,7 +109,10 @@ export function TaskListHeader({ onAddSection }: TaskListHeaderProps) {
             <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]">
               <button
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                onClick={() => setShowAddMenu(false)}
+                onClick={() => {
+                  setShowAddMenu(false)
+                  onAddTask?.()
+                }}
               >
                 <CheckSquare className="h-3 w-3" />
                 New task

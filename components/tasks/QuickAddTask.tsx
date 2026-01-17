@@ -11,13 +11,29 @@ interface QuickAddTaskProps {
   projectId?: Id<'projects'>
   sectionId?: Id<'sections'>
   className?: string
+  autoOpen?: boolean
+  onAutoOpenHandled?: () => void
 }
 
-export function QuickAddTask({ projectId, sectionId, className }: QuickAddTaskProps) {
+export function QuickAddTask({
+  projectId,
+  sectionId,
+  className,
+  autoOpen,
+  onAutoOpenHandled,
+}: QuickAddTaskProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [title, setTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const createTask = useMutation(api.tasks.createFromUI)
+
+  // Handle auto-open trigger
+  useEffect(() => {
+    if (autoOpen) {
+      setIsAdding(true)
+      onAutoOpenHandled?.()
+    }
+  }, [autoOpen, onAutoOpenHandled])
 
   useEffect(() => {
     if (isAdding && inputRef.current) {

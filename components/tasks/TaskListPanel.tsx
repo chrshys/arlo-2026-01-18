@@ -22,6 +22,7 @@ interface TaskListPanelProps {
 export function TaskListPanel({ className }: TaskListPanelProps) {
   const { selection } = useTaskNavigation()
   const [isAddingSection, setIsAddingSection] = useState(false)
+  const [isAddingTask, setIsAddingTask] = useState(false)
 
   // Fetch tasks based on selection
   const inboxTasks = useQuery(
@@ -93,7 +94,10 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
 
   return (
     <div className={cn('h-full flex flex-col', className)}>
-      <TaskListHeader onAddSection={() => setIsAddingSection(true)} />
+      <TaskListHeader
+        onAddSection={() => setIsAddingSection(true)}
+        onAddTask={() => setIsAddingTask(true)}
+      />
 
       <div className="flex-1 overflow-auto p-2">
         {isLoading ? (
@@ -108,6 +112,8 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
             projectId={
               selection.type === 'smart-list' && selection.list === 'inbox' ? undefined : undefined
             }
+            isAddingTask={isAddingTask}
+            onAddingTaskHandled={() => setIsAddingTask(false)}
           />
         ) : (
           // Project view - grouped by sections
@@ -118,6 +124,8 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
             projectId={selection.type === 'project' ? selection.projectId : undefined}
             isAddingSection={isAddingSection}
             onAddSectionDone={() => setIsAddingSection(false)}
+            isAddingTask={isAddingTask}
+            onAddingTaskHandled={() => setIsAddingTask(false)}
           />
         )}
       </div>
@@ -146,9 +154,11 @@ interface SmartListViewProps {
   tasks: TaskData[]
   notes: NoteData[]
   projectId?: Id<'projects'>
+  isAddingTask?: boolean
+  onAddingTaskHandled?: () => void
 }
 
-function SmartListView({ tasks, notes }: SmartListViewProps) {
+function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: SmartListViewProps) {
   const { selectedNoteId, setSelectedNoteId } = useTaskNavigation()
   const reorderTasks = useMutation(api.tasks.reorder)
 
@@ -225,7 +235,7 @@ function SmartListView({ tasks, notes }: SmartListViewProps) {
         ))}
       </SortableContext>
 
-      <QuickAddTask />
+      <QuickAddTask autoOpen={isAddingTask} onAutoOpenHandled={onAddingTaskHandled} />
 
       {completedTasks.length > 0 && (
         <div className="mt-4 pt-2 border-t border-border">
@@ -259,6 +269,8 @@ interface ProjectViewProps {
   projectId?: Id<'projects'>
   isAddingSection?: boolean
   onAddSectionDone?: () => void
+  isAddingTask?: boolean
+  onAddingTaskHandled?: () => void
 }
 
 function ProjectView({
@@ -268,6 +280,8 @@ function ProjectView({
   projectId,
   isAddingSection,
   onAddSectionDone,
+  isAddingTask,
+  onAddingTaskHandled,
 }: ProjectViewProps) {
   const [sectionName, setSectionName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -308,7 +322,13 @@ function ProjectView({
     <div>
       {/* Unsectioned tasks and notes */}
       {(unsectionedTasks.length > 0 || unsectionedNotes.length > 0 || sections.length === 0) && (
-        <SectionGroup tasks={unsectionedTasks} notes={unsectionedNotes} projectId={projectId} />
+        <SectionGroup
+          tasks={unsectionedTasks}
+          notes={unsectionedNotes}
+          projectId={projectId}
+          isAddingTask={isAddingTask}
+          onAddingTaskHandled={onAddingTaskHandled}
+        />
       )}
 
       {/* Sectioned tasks and notes */}

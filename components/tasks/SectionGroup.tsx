@@ -37,6 +37,8 @@ interface SectionGroupProps {
   notes?: Note[]
   projectId?: Id<'projects'>
   showCompleted?: boolean
+  isAddingTask?: boolean
+  onAddingTaskHandled?: () => void
 }
 
 export function SectionGroup({
@@ -46,6 +48,8 @@ export function SectionGroup({
   notes = [],
   projectId,
   showCompleted = false,
+  isAddingTask,
+  onAddingTaskHandled,
 }: SectionGroupProps) {
   const { selectedNoteId, setSelectedNoteId } = useTaskNavigation()
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -246,7 +250,12 @@ export function SectionGroup({
             />
           ))}
 
-          <QuickAddTask projectId={projectId} sectionId={sectionId} />
+          <QuickAddTask
+            projectId={projectId}
+            sectionId={sectionId}
+            autoOpen={isAddingTask}
+            onAutoOpenHandled={onAddingTaskHandled}
+          />
 
           {completedTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border">
