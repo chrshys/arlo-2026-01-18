@@ -6,6 +6,16 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight, Folder, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,28 +24,30 @@ import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { DraggableProjectItem } from './DraggableProjectItem'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
 
 interface DraggableFolderItemProps {
   folderId: Id<'folders'>
   name: string
   color?: string
+  isDropTarget?: boolean
 }
 
-export function DraggableFolderItem({ folderId, name, color }: DraggableFolderItemProps) {
+export function DraggableFolderItem({
+  folderId,
+  name,
+  color,
+  isDropTarget = false,
+}: DraggableFolderItemProps) {
   const { expandedFolders, toggleFolder } = useTaskNavigation()
   const projects = useQuery(api.projects.listByFolder, { folderId })
   const reorderProjects = useMutation(api.projects.reorder)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: folderId,
+  })
+
+  // Make this folder a drop target for projects
+  const { isOver, setNodeRef: setDropRef } = useDroppable({
     id: folderId,
   })
 
@@ -75,13 +87,20 @@ export function DraggableFolderItem({ folderId, name, color }: DraggableFolderIt
     }
   }
 
+  // Combine refs for both sortable and droppable
+  const combinedRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node)
+    setDropRef(node)
+  }
+
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={combinedRef} style={style}>
       <div
         className={cn(
           'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm transition-colors',
           'hover:bg-accent/50',
-          isDragging && 'opacity-50 bg-accent'
+          isDragging && 'opacity-50 bg-accent',
+          isDropTarget && isOver && 'ring-2 ring-primary bg-primary/10'
         )}
       >
         <div
