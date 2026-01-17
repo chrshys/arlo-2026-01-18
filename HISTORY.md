@@ -975,3 +975,53 @@ notes: defineTable({
 - `e7d9e85` - fix(notes): debounce title updates to prevent input race condition
 
 **Result:** Notes editor and title input now work correctly.
+
+---
+
+### 2026-01-17 (continued) — Notes Bubble Menu Formatting Fix
+
+**Focus:** Fix bubble menu formatting buttons (headings, lists, blockquotes) not working.
+
+**Symptom:** Clicking heading, list, or blockquote buttons in the bubble menu did nothing. Mark buttons (bold, italic, underline, strikethrough) worked fine.
+
+**Investigation:**
+
+1. Initially suspected command handler pattern differences (`editor.commands.toggleX()` vs `editor.chain().focus().toggleX().run()`)
+2. Tried `clearNodes()` pattern from Novel examples
+3. Tried bypassing `EditorBubbleItem` with plain button elements
+4. Added diagnostic logging — discovered commands were executing successfully and document JSON was updating correctly
+
+**Root Cause:** CSS styling issue, not a JavaScript/command issue.
+
+- Tiptap commands were working — the document structure was changing (paragraphs → bulletList, heading, etc.)
+- Tailwind's preflight CSS resets `list-style: none` on all lists
+- The `prose` classes from Tailwind Typography weren't reaching elements inside ProseMirror's content-editable container
+- Result: DOM updated correctly but lists had no bullets, headings had no size changes
+
+**Fix:** Added explicit Tailwind styles scoped to `.ProseMirror` elements:
+
+```tsx
+className="... [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6
+[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6
+[&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border
+[&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic
+[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h1]:font-bold
+[&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h2]:font-bold
+[&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-semibold
+[&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:rounded-md
+[&_.ProseMirror_pre]:p-3 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm"
+```
+
+**Additional Changes:**
+
+- Added `immediatelyRender={false}` to fix SSR hydration warning
+- Removed inline code button from bubble menu (duplicate of code block)
+- Changed `BubbleButton` from `EditorBubbleItem` to plain `<button>` (simpler, works the same)
+
+**Files Modified:**
+
+| File                              | Changes                                            |
+| --------------------------------- | -------------------------------------------------- |
+| `components/notes/NoteEditor.tsx` | Added ProseMirror element styles, SSR fix, cleanup |
+
+**Lesson Learned:** When editor commands "don't work," verify the document state is actually changing before assuming command execution is the problem. CSS can make successful DOM updates invisible.

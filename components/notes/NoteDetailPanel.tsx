@@ -94,7 +94,7 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 flex flex-col min-h-0">
         <NoteEditor noteId={noteId} initialContent={note.content} />
       </div>
     </div>
