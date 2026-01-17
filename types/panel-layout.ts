@@ -5,8 +5,6 @@ export type ContentMaxWidth = 'narrow' | 'medium' | 'wide' | 'full'
 export interface PanelLayoutState {
   listPanelVisible: boolean
   canvasPanelVisible: boolean
-  listPanelSize: number // pixels (react-resizable-panels v4 uses pixels)
-  canvasPanelSize: number // pixels
 }
 
 export interface MobileNavigationState {
@@ -21,8 +19,6 @@ export interface PanelLayoutContextValue {
   setCanvasPanelVisible: (visible: boolean) => void
   toggleListPanel: () => void
   toggleCanvasPanel: () => void
-  setListPanelSize: (size: number) => void
-  setCanvasPanelSize: (size: number) => void
 
   // Mobile navigation
   mobile: MobileNavigationState
@@ -40,9 +36,14 @@ export interface PanelLayoutContextValue {
 export const DEFAULT_LAYOUT: PanelLayoutState = {
   listPanelVisible: true,
   canvasPanelVisible: false,
-  listPanelSize: 280, // pixels
-  canvasPanelSize: 320, // pixels
 }
+
+// Shared panel size constraints (pixels) for consistent UX across views
+export const PANEL_SIZES = {
+  sidebar: { default: 240, min: 180, max: 360 },
+  main: { min: 400 },
+  detail: { default: 320, min: 250, max: 500 },
+} as const
 
 export const CONTENT_MAX_WIDTHS: Record<ContentMaxWidth, string> = {
   narrow: '600px',

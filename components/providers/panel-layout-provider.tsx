@@ -99,14 +99,6 @@ export function PanelLayoutProvider({ children }: PanelLayoutProviderProps) {
     setLayout((prev) => ({ ...prev, canvasPanelVisible: !prev.canvasPanelVisible }))
   }, [])
 
-  const setListPanelSize = useCallback((size: number) => {
-    setLayout((prev) => ({ ...prev, listPanelSize: size }))
-  }, [])
-
-  const setCanvasPanelSize = useCallback((size: number) => {
-    setLayout((prev) => ({ ...prev, canvasPanelSize: size }))
-  }, [])
-
   // Mobile navigation actions
   const pushPanel = useCallback((panel: PanelId) => {
     setMobile((prev) => ({
@@ -139,8 +131,6 @@ export function PanelLayoutProvider({ children }: PanelLayoutProviderProps) {
       setCanvasPanelVisible,
       toggleListPanel,
       toggleCanvasPanel,
-      setListPanelSize,
-      setCanvasPanelSize,
       mobile,
       isMobile,
       isHydrated,
@@ -156,8 +146,6 @@ export function PanelLayoutProvider({ children }: PanelLayoutProviderProps) {
       setCanvasPanelVisible,
       toggleListPanel,
       toggleCanvasPanel,
-      setListPanelSize,
-      setCanvasPanelSize,
       mobile,
       isMobile,
       isHydrated,

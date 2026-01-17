@@ -657,3 +657,52 @@ Replace `onResize` on individual Panel components with `onLayoutChanged` on the 
 - Relative timestamp formatting: "2m ago", "3h ago", "Yesterday", "Jan 16"
 
 **Result:** Users can now view all conversations, switch between them, and explicitly create new ones via the "+" button.
+
+---
+
+### 2026-01-17 — Panel Size Persistence & Standardization
+
+**Focus:** Fix panel sizes not persisting across page refreshes, and standardize panel naming/sizes across views.
+
+**Problem:** Panel widths reset to defaults on page refresh. The custom persistence via `onLayoutChanged` wasn't working reliably, and TasksView had no persistence at all.
+
+**Solution:**
+
+1. **Local persistence in each layout component** — Each component manages its own localStorage load/save
+2. **Unified panel IDs** — Both views now use `sidebar`, `main`, `detail` instead of view-specific names
+3. **Shared storage key** — `arlo-panel-sizes` syncs sizes across views since panel IDs match
+4. **Shared size constants** — `PANEL_SIZES` in types file ensures consistent constraints
+
+**Panel Naming Standardization:**
+
+| Position | Old (Chat) | Old (Tasks)     | New (Both) |
+| -------- | ---------- | --------------- | ---------- |
+| Left     | `list`     | `tasks-sidebar` | `sidebar`  |
+| Center   | `focus`    | `tasks-list`    | `main`     |
+| Right    | `canvas`   | `tasks-detail`  | `detail`   |
+
+**Unified Panel Sizes:**
+
+| Panel   | Default | Min | Max |
+| ------- | ------- | --- | --- |
+| sidebar | 240px   | 180 | 360 |
+| main    | flex    | 400 | —   |
+| detail  | 320px   | 250 | 500 |
+
+**Files Modified:**
+
+| File                                             | Changes                                           |
+| ------------------------------------------------ | ------------------------------------------------- |
+| `types/panel-layout.ts`                          | Added `PANEL_SIZES` constant, removed size state  |
+| `components/layout/DesktopPanelLayout.tsx`       | Self-contained localStorage, unified panel IDs    |
+| `components/tasks/TasksView.tsx`                 | Added localStorage persistence, unified panel IDs |
+| `components/providers/panel-layout-provider.tsx` | Removed unused size-related code                  |
+
+**Technical Notes:**
+
+- `react-resizable-panels` v4 doesn't have `autoSaveId` like v3; requires manual localStorage handling
+- `defaultLayout` prop on Group sets initial layout from saved state
+- `onLayoutChanged` callback fires only on drag end (safe for state updates)
+- Hydration guard prevents layout shift on page load
+
+**Result:** Panel sizes now persist across refreshes. Resizing sidebar in chat mode reflects in tasks mode (and vice versa) since both use the same panel IDs and storage key.

@@ -19,12 +19,38 @@ import {
   type CollisionDetection,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { useState, useCallback, createContext, useContext, useMemo } from 'react'
+import { useState, useCallback, createContext, useContext, useMemo, useEffect } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { parseDragId, type DragItemType } from '@/lib/drag-utils'
 import { Circle, Folder, Hash } from 'lucide-react'
+import { PANEL_SIZES } from '@/types/panel-layout'
+
+// Shared storage key - panel sizes sync across views since IDs match
+const STORAGE_KEY = 'arlo-panel-sizes'
+
+type PanelSizes = Record<string, number>
+
+function loadSizes(): PanelSizes | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) return JSON.parse(stored)
+  } catch {
+    // Ignore parse errors
+  }
+  return undefined
+}
+
+function saveSizes(sizes: PanelSizes): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sizes))
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 // Context to share drag state with child components
 interface UnifiedDragContextValue {
@@ -44,6 +70,18 @@ export function useUnifiedDrag() {
 export function TasksView() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeType, setActiveType] = useState<DragItemType | null>(null)
+  const [savedSizes, setSavedSizes] = useState<PanelSizes | undefined>(undefined)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setSavedSizes(loadSizes())
+    setIsHydrated(true)
+  }, [])
+
+  const handleLayoutChanged = useCallback((newLayout: PanelSizes) => {
+    saveSizes(newLayout)
+    setSavedSizes(newLayout)
+  }, [])
 
   // Mutations for drag operations
   const moveTaskToProject = useMutation(api.tasks.moveToProject)
@@ -227,6 +265,11 @@ export function TasksView() {
   const activeProject = activeType === 'project' ? projects?.find((p) => p._id === activeId) : null
   const activeFolder = activeType === 'folder' ? folders?.find((f) => f._id === activeId) : null
 
+  // Wait for hydration to avoid layout shift
+  if (!isHydrated) {
+    return <div className="h-full w-full bg-background" />
+  }
+
   return (
     <TaskNavigationProvider>
       <UnifiedDragContext.Provider value={{ activeId, activeType }}>
@@ -236,20 +279,36 @@ export function TasksView() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <Group orientation="horizontal" className="h-full w-full">
-            <Panel id="tasks-sidebar" defaultSize={220} minSize={180} maxSize={300}>
+          <Group
+            id="panels"
+            orientation="horizontal"
+            className="h-full w-full"
+            defaultLayout={savedSizes}
+            onLayoutChanged={handleLayoutChanged}
+          >
+            <Panel
+              id="sidebar"
+              defaultSize={PANEL_SIZES.sidebar.default}
+              minSize={PANEL_SIZES.sidebar.min}
+              maxSize={PANEL_SIZES.sidebar.max}
+            >
               <div className="h-full w-full bg-muted/30 border-r border-border">
                 <TasksSidebar />
               </div>
             </Panel>
             <Separator className="w-1 bg-border hover:bg-primary/50 cursor-col-resize outline-none" />
-            <Panel id="tasks-list" defaultSize={350} minSize={280}>
+            <Panel id="main" minSize={PANEL_SIZES.main.min}>
               <div className="h-full w-full bg-background">
                 <TaskListPanel />
               </div>
             </Panel>
             <Separator className="w-1 bg-border hover:bg-primary/50 cursor-col-resize outline-none" />
-            <Panel id="tasks-detail" minSize={300}>
+            <Panel
+              id="detail"
+              defaultSize={PANEL_SIZES.detail.default}
+              minSize={PANEL_SIZES.detail.min}
+              maxSize={PANEL_SIZES.detail.max}
+            >
               <div className="h-full w-full bg-background border-l border-border">
                 <TaskDetailPanel />
               </div>
