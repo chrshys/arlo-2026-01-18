@@ -44,7 +44,7 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
         'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm transition-colors',
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
-        isDragging && 'opacity-50 bg-accent'
+        isDragging && 'opacity-0'
       )}
     >
       <div
