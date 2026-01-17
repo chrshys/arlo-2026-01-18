@@ -2,13 +2,27 @@
 
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { TaskListHeader } from './TaskListHeader'
 import { SectionGroup } from './SectionGroup'
 import { QuickAddTask } from './QuickAddTask'
-import { TaskRow } from './TaskRow'
+import { DraggableTaskRow } from './DraggableTaskRow'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 
 interface TaskListPanelProps {
   className?: string
@@ -114,6 +128,19 @@ interface SmartListViewProps {
 }
 
 function SmartListView({ tasks }: SmartListViewProps) {
+  const reorderTasks = useMutation(api.tasks.reorder)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   const pendingTasks = tasks
     .filter((t) => t.status === 'pending')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
@@ -121,6 +148,23 @@ function SmartListView({ tasks }: SmartListViewProps) {
   const completedTasks = tasks
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = pendingTasks.findIndex((t) => t._id === active.id)
+      const newIndex = pendingTasks.findIndex((t) => t._id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = [...pendingTasks]
+        const [removed] = reordered.splice(oldIndex, 1)
+        reordered.splice(newIndex, 0, removed)
+
+        await reorderTasks({ orderedIds: reordered.map((t) => t._id) })
+      }
+    }
+  }
 
   if (tasks.length === 0) {
     return (
@@ -132,16 +176,23 @@ function SmartListView({ tasks }: SmartListViewProps) {
 
   return (
     <div className="space-y-0.5">
-      {pendingTasks.map((task) => (
-        <TaskRow
-          key={task._id}
-          taskId={task._id}
-          title={task.title}
-          status={task.status}
-          priority={task.priority}
-          dueDate={task.dueDate}
-        />
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={pendingTasks.map((t) => t._id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {pendingTasks.map((task) => (
+            <DraggableTaskRow
+              key={task._id}
+              taskId={task._id}
+              title={task.title}
+              status={task.status}
+              priority={task.priority}
+              dueDate={task.dueDate}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       <QuickAddTask />
 
@@ -151,7 +202,7 @@ function SmartListView({ tasks }: SmartListViewProps) {
             Completed ({completedTasks.length})
           </p>
           {completedTasks.map((task) => (
-            <TaskRow
+            <DraggableTaskRow
               key={task._id}
               taskId={task._id}
               title={task.title}
