@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Trash2, X } from 'lucide-react'
 import { NoteEditor } from './NoteEditor'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 interface NoteDetailPanelProps {
   noteId: Id<'notes'>
@@ -20,12 +20,37 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
   const deleteNote = useMutation(api.notes.remove)
 
   const [title, setTitle] = useState('')
+  const initializedRef = useRef<Id<'notes'> | null>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Only sync from server on initial load or when noteId changes
   useEffect(() => {
-    if (note) {
+    if (note && initializedRef.current !== noteId) {
       setTitle(note.title)
+      initializedRef.current = noteId
     }
-  }, [note])
+  }, [note, noteId])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const debouncedSave = useCallback(
+    (newTitle: string) => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        updateNote({ id: noteId, title: newTitle })
+      }, 300)
+    },
+    [noteId, updateNote]
+  )
 
   if (!note) {
     return (
@@ -37,7 +62,7 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle)
-    updateNote({ id: noteId, title: newTitle })
+    debouncedSave(newTitle)
   }
 
   const handleDelete = async () => {
