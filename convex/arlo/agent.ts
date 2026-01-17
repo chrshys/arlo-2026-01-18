@@ -10,6 +10,9 @@ import {
   listProjects,
   setTaskPriority,
   setDueDate,
+  createNote,
+  listNotes,
+  updateNote,
 } from './tools'
 
 const gateway = createGateway({
@@ -19,7 +22,7 @@ const gateway = createGateway({
 export const arlo = new Agent(components.agent, {
   name: 'Arlo',
   languageModel: gateway('anthropic/claude-sonnet-4'),
-  instructions: `You are Arlo, a personal assistant who shares a task workspace with the user.
+  instructions: `You are Arlo, a personal assistant who shares a task and notes workspace with the user.
 
 You can manage tasks with full control over organization:
 - Create tasks with titles, descriptions, priorities, and due dates
@@ -27,11 +30,17 @@ You can manage tasks with full control over organization:
 - Set reminders for tasks
 - List and complete tasks
 
+You can also manage notes:
+- Create notes with titles and content (in markdown)
+- List existing notes
+- Update note content
+
 Task organization:
 - Tasks can be in the Inbox (no project) or in a Project
 - Projects can be inside Folders for organization
 - Each Project can have Sections to group tasks
 - Tasks have priorities: none, low, medium, high
+- Notes follow the same organization (Inbox or Project)
 
 Important behaviors:
 - When creating a task, ask about priority and due date if not specified
@@ -39,6 +48,7 @@ Important behaviors:
 - Confirm actions you take with brief, clear messages
 - Be proactive about suggesting task organization
 - Keep responses brief but friendly
+- Use notes for longer-form information, meeting notes, or reference material
 
 When the user mentions work, check listProjects first to see if there's a Work folder/project.
 When they mention personal items, check for Personal projects.`,
@@ -51,6 +61,9 @@ When they mention personal items, check for Personal projects.`,
     listProjects,
     setTaskPriority,
     setDueDate,
+    createNote,
+    listNotes,
+    updateNote,
   },
   maxSteps: 8,
 })

@@ -324,3 +324,99 @@ function parseReminderTime(input: string): number | undefined {
 
   return undefined
 }
+
+// Note tools
+
+export const createNote = createTool({
+  description: 'Create a new note. Can optionally specify a project.',
+  args: z.object({
+    title: z.string().describe('The note title'),
+    content: z.string().optional().describe('Optional note content in markdown format'),
+    projectId: z.string().optional().describe('Optional project ID to add the note to'),
+  }),
+  handler: async (ctx, args): Promise<{ noteId: string; message: string }> => {
+    const noteId = await ctx.runMutation(internal.notes.create, {
+      title: args.title,
+      content: args.content,
+      projectId: args.projectId as Id<'projects'> | undefined,
+      createdBy: 'arlo',
+    })
+
+    await ctx.runMutation(internal.activity.log, {
+      action: 'create_note',
+      actor: 'arlo',
+      outcome: 'success',
+      targetId: noteId,
+      details: `Created note: ${args.title}${args.projectId ? ' in project' : ''}`,
+    })
+
+    return {
+      noteId,
+      message: `Created note: "${args.title}"`,
+    }
+  },
+})
+
+export const listNotes = createTool({
+  description: 'List all notes. Use this to see what notes exist.',
+  args: z.object({
+    projectId: z.string().optional().describe('Optional project ID to filter by'),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    notes: Array<{
+      id: string
+      title: string
+      updatedAt: string
+    }>
+  }> => {
+    const notes = await ctx.runQuery(internal.notes.listAll)
+
+    // Filter by project if specified
+    let filteredNotes = notes
+    if (args.projectId) {
+      filteredNotes = notes.filter((n) => n.projectId === args.projectId)
+    }
+
+    await ctx.runMutation(internal.activity.log, {
+      action: 'list_notes',
+      actor: 'arlo',
+      outcome: 'success',
+      details: `Listed ${filteredNotes.length} notes`,
+    })
+
+    return {
+      notes: filteredNotes.map((n) => ({
+        id: n._id,
+        title: n.title,
+        updatedAt: new Date(n.updatedAt).toLocaleString(),
+      })),
+    }
+  },
+})
+
+export const updateNote = createTool({
+  description: 'Update the content of an existing note',
+  args: z.object({
+    noteId: z.string().describe('The ID of the note to update'),
+    content: z.string().describe('The new content in markdown format'),
+  }),
+  handler: async (ctx, args): Promise<{ message: string }> => {
+    await ctx.runMutation(internal.notes.updateContentInternal, {
+      id: args.noteId as Id<'notes'>,
+      content: args.content,
+    })
+
+    await ctx.runMutation(internal.activity.log, {
+      action: 'update_note',
+      actor: 'arlo',
+      outcome: 'success',
+      targetId: args.noteId,
+      details: 'Updated note content',
+    })
+
+    return { message: 'Note updated' }
+  },
+})
