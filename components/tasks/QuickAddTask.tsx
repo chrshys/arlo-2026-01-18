@@ -13,6 +13,8 @@ interface QuickAddTaskProps {
   className?: string
   autoOpen?: boolean
   onAutoOpenHandled?: () => void
+  hideButton?: boolean
+  onClose?: () => void
 }
 
 export function QuickAddTask({
@@ -21,6 +23,8 @@ export function QuickAddTask({
   className,
   autoOpen,
   onAutoOpenHandled,
+  hideButton,
+  onClose,
 }: QuickAddTaskProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [title, setTitle] = useState('')
@@ -59,6 +63,7 @@ export function QuickAddTask({
   const handleBlur = () => {
     if (!title.trim()) {
       setIsAdding(false)
+      onClose?.()
     }
   }
 
@@ -66,10 +71,14 @@ export function QuickAddTask({
     if (e.key === 'Escape') {
       setTitle('')
       setIsAdding(false)
+      onClose?.()
     }
   }
 
   if (!isAdding) {
+    if (hideButton) {
+      return null
+    }
     return (
       <button
         onClick={() => setIsAdding(true)}

@@ -15,7 +15,7 @@ import { NoteRow } from '@/components/notes/NoteRow'
 import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { createDragId, parseDragId } from '@/lib/drag-utils'
-import { Folder } from 'lucide-react'
+import { ChevronRight, Folder } from 'lucide-react'
 
 interface TaskListPanelProps {
   className?: string
@@ -305,12 +305,16 @@ function ProjectView({
   onAddingTaskHandled,
 }: ProjectViewProps) {
   const [sectionName, setSectionName] = useState('')
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const createSection = useMutation(api.sections.create)
 
   // Tasks and notes without a section
   const unsectionedTasks = tasks.filter((t) => !t.sectionId)
   const unsectionedNotes = notes.filter((n) => !n.sectionId)
+
+  // All completed tasks across all sections
+  const completedTasks = tasks.filter((t) => t.status === 'completed')
 
   // Group tasks by section
   const sortedSections = sections.slice().sort((a, b) => a.sortOrder - b.sortOrder)
@@ -349,6 +353,7 @@ function ProjectView({
           projectId={projectId}
           isAddingTask={isAddingTask}
           onAddingTaskHandled={onAddingTaskHandled}
+          hideCompletedSection
         />
       )}
 
@@ -364,9 +369,40 @@ function ProjectView({
             tasks={sectionTasks}
             notes={sectionNotes}
             projectId={projectId}
+            hideCompletedSection
           />
         )
       })}
+
+      {/* Completed tasks section */}
+      {completedTasks.length > 0 && (
+        <div className="mt-4 pt-2 border-t border-border">
+          <button
+            onClick={() => setShowCompletedTasks(!showCompletedTasks)}
+            className="flex items-center gap-1 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight
+              className={cn('h-3 w-3 transition-transform', showCompletedTasks && 'rotate-90')}
+            />
+            Completed ({completedTasks.length})
+          </button>
+
+          {showCompletedTasks && (
+            <div className="mt-1 space-y-0.5">
+              {completedTasks.map((task) => (
+                <DraggableTaskRow
+                  key={task._id}
+                  taskId={task._id}
+                  title={task.title}
+                  status={task.status}
+                  priority={task.priority}
+                  dueDate={task.dueDate}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add section input */}
       {isAddingSection && (

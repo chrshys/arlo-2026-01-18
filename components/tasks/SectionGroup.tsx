@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { DraggableTaskRow } from './DraggableTaskRow'
@@ -59,6 +59,7 @@ export function SectionGroup({
   const [showMenu, setShowMenu] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(sectionName ?? '')
+  const [isAddingTaskToSection, setIsAddingTaskToSection] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -156,6 +157,11 @@ export function SectionGroup({
     }
   }
 
+  const handleAddTask = () => {
+    setShowMenu(false)
+    setIsAddingTaskToSection(true)
+  }
+
   const handleRename = () => {
     setShowMenu(false)
     setIsEditing(true)
@@ -217,6 +223,13 @@ export function SectionGroup({
               <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[120px]">
                 <button
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                  onClick={handleAddTask}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add task
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
                   onClick={handleRename}
                 >
                   <Pencil className="h-3 w-3" />
@@ -267,8 +280,10 @@ export function SectionGroup({
           <QuickAddTask
             projectId={projectId}
             sectionId={sectionId}
-            autoOpen={isAddingTask}
+            autoOpen={isAddingTaskToSection || isAddingTask}
             onAutoOpenHandled={onAddingTaskHandled}
+            hideButton={!!sectionId}
+            onClose={() => setIsAddingTaskToSection(false)}
           />
 
           {completedTasks.length > 0 && !hideCompletedSection && (
