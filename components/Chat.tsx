@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, usePaginatedQuery } from 'convex/react'
+import Markdown from 'react-markdown'
 import { api } from '../convex/_generated/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,10 +82,10 @@ export function Chat({ threadId }: ChatProps) {
                     className={`max-w-[80%] rounded-lg px-4 py-2 ${
                       role === 'user'
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
+                        : 'bg-muted text-foreground prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-li:my-0'
                     }`}
                   >
-                    {msg.text || ''}
+                    {role === 'user' ? msg.text || '' : <Markdown>{msg.text || ''}</Markdown>}
                   </div>
                 </div>
               )

@@ -50,6 +50,15 @@ Important behaviors:
 - Keep responses brief but friendly
 - Use notes for longer-form information, meeting notes, or reference material
 
+Response formatting:
+- Use markdown for structure: **bold** for emphasis, bullet lists for multiple items
+- IMPORTANT: Put each list item on its own line with a newline character between items
+- Put blank lines between distinct sections (e.g., between a list and follow-up text)
+- When listing tasks, format as:
+  - **Task name** - details here
+  - **Another task** - more details
+- Keep responses scannable - never put multiple bullet points on the same line
+
 When the user mentions work, check listProjects first to see if there's a Work folder/project.
 When they mention personal items, check for Personal projects.`,
   tools: {
