@@ -6,6 +6,7 @@ import {
   Calendar,
   CalendarDays,
   Hash,
+  Folder,
   MoreVertical,
   Plus,
   CheckSquare,
@@ -34,6 +35,7 @@ interface TaskListHeaderProps {
 export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps) {
   const { selection, setEditingNoteId } = useTaskNavigation()
   const projects = useQuery(api.projects.list)
+  const folders = useQuery(api.folders.list)
   const createNote = useMutation(api.notes.createFromUI)
 
   const [showMenu, setShowMenu] = useState(false)
@@ -54,8 +56,13 @@ export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps)
     if (project) {
       title = project.name
     }
+  } else if (selection.type === 'folder') {
+    const folder = folders?.find((f) => f._id === selection.folderId)
+    if (folder) {
+      title = folder.name
+    }
+    Icon = Folder
   }
-  // Folder case will be handled in Task 7
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
