@@ -379,17 +379,15 @@ function ProjectView({
 
   return (
     <div>
-      {/* Unsectioned tasks and notes */}
-      {(unsectionedTasks.length > 0 || unsectionedNotes.length > 0 || sections.length === 0) && (
-        <SectionGroup
-          tasks={unsectionedTasks}
-          notes={unsectionedNotes}
-          projectId={projectId}
-          isAddingTask={isAddingTask}
-          onAddingTaskHandled={onAddingTaskHandled}
-          hideCompletedSection
-        />
-      )}
+      {/* Unsectioned tasks and notes - always render for QuickAddTask availability */}
+      <SectionGroup
+        tasks={unsectionedTasks}
+        notes={unsectionedNotes}
+        projectId={projectId}
+        isAddingTask={isAddingTask}
+        onAddingTaskHandled={onAddingTaskHandled}
+        hideCompletedSection
+      />
 
       {/* Sectioned tasks and notes */}
       {sortedSections.map((section) => {

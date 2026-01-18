@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar as CalendarIcon, Plus, X } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, X, Flag } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -9,10 +9,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
+import { cn } from '@/lib/utils'
+
+type Priority = 'none' | 'low' | 'medium' | 'high'
+
+const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
+  { value: 'high', label: 'High', color: 'text-red-500' },
+  { value: 'medium', label: 'Medium', color: 'text-orange-500' },
+  { value: 'low', label: 'Low', color: 'text-blue-500' },
+  { value: 'none', label: 'None', color: 'text-muted-foreground' },
+]
 
 interface TaskPropertiesProps {
   taskId: Id<'tasks'>
   dueDate?: number | null
+  priority?: Priority | null
 }
 
 function formatDate(timestamp: number): string {
@@ -24,21 +35,31 @@ function formatDate(timestamp: number): string {
   return format(date, 'EEE, MMM d')
 }
 
-export function TaskProperties({ taskId, dueDate }: TaskPropertiesProps) {
-  const [open, setOpen] = useState(false)
+export function TaskProperties({ taskId, dueDate, priority }: TaskPropertiesProps) {
+  const [dateOpen, setDateOpen] = useState(false)
+  const [priorityOpen, setPriorityOpen] = useState(false)
   const updateTask = useMutation(api.tasks.update)
   const clearField = useMutation(api.tasks.clearField)
+
+  const priorityValue = priority ?? 'none'
+  const currentPriority =
+    PRIORITY_OPTIONS.find((p) => p.value === priorityValue) ?? PRIORITY_OPTIONS[3]
 
   const handleDateSelect = async (date: Date | undefined) => {
     if (date) {
       date.setHours(23, 59, 59, 999)
       await updateTask({ id: taskId, dueDate: date.getTime() })
-      setOpen(false)
+      setDateOpen(false)
     }
   }
 
   const handleClearDate = async () => {
     await clearField({ id: taskId, field: 'dueDate' })
+  }
+
+  const handlePrioritySelect = async (value: Priority) => {
+    await updateTask({ id: taskId, priority: value })
+    setPriorityOpen(false)
   }
 
   const selectedDate = dueDate ? new Date(dueDate) : undefined
@@ -48,7 +69,7 @@ export function TaskProperties({ taskId, dueDate }: TaskPropertiesProps) {
       <label className="text-sm font-medium text-muted-foreground mb-2 block">Due date</label>
       {dueDate ? (
         <div className="flex items-center gap-2 p-2 rounded bg-muted/50">
-          <Popover open={open} onOpenChange={setOpen}>
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 flex-1 min-w-0">
                 <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -111,7 +132,7 @@ export function TaskProperties({ taskId, dueDate }: TaskPropertiesProps) {
           </Button>
         </div>
       ) : (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
@@ -163,6 +184,35 @@ export function TaskProperties({ taskId, dueDate }: TaskPropertiesProps) {
           </PopoverContent>
         </Popover>
       )}
+
+      <label className="text-sm font-medium text-muted-foreground mb-2 mt-4 block">Priority</label>
+      <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
+        <PopoverTrigger asChild>
+          <button className="flex items-center gap-2 p-2 rounded bg-muted/50 w-full hover:bg-muted transition-colors">
+            <Flag className={cn('h-4 w-4 shrink-0', currentPriority.color)} />
+            <span className="text-sm">{currentPriority.label}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-40 p-1" align="start">
+          <div className="flex flex-col gap-1">
+            {PRIORITY_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'w-full justify-start gap-2',
+                  priorityValue === option.value && 'bg-accent'
+                )}
+                onClick={() => handlePrioritySelect(option.value)}
+              >
+                <Flag className={cn('h-4 w-4', option.color)} />
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

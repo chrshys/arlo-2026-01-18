@@ -56,7 +56,7 @@ export function TaskDetailPanel({ className }: TaskDetailPanelProps) {
 
       <div className="flex-1 overflow-auto">
         <TaskDescription taskId={task._id} description={task.description} />
-        <TaskProperties taskId={task._id} dueDate={task.dueDate} />
+        <TaskProperties taskId={task._id} dueDate={task.dueDate} priority={task.priority} />
         <ReminderList taskId={task._id} reminders={task.reminders} dueDate={task.dueDate} />
         <SubtaskList taskId={task._id} />
       </div>
