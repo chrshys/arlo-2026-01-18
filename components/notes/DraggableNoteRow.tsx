@@ -88,12 +88,12 @@ export function DraggableNoteRow({ noteId, title, isSelected, onSelect }: Dragga
         ref={setNodeRef}
         style={style}
         className={cn(
-          'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left',
+          'group w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left',
           'bg-accent text-accent-foreground',
           shouldHide && 'opacity-0'
         )}
       >
-        <div className="shrink-0 cursor-grab active:cursor-grabbing touch-none">
+        <div className="shrink-0 cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity">
           <GripVertical className="h-4 w-4 text-muted-foreground/50" />
         </div>
         <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -117,7 +117,7 @@ export function DraggableNoteRow({ noteId, title, isSelected, onSelect }: Dragga
       style={style}
       onClick={handleClick}
       className={cn(
-        'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left cursor-pointer',
+        'group w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left cursor-pointer',
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
         shouldHide && 'opacity-0'
@@ -126,7 +126,7 @@ export function DraggableNoteRow({ noteId, title, isSelected, onSelect }: Dragga
       <div
         {...attributes}
         {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+        className="shrink-0 cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <GripVertical className="h-4 w-4 text-muted-foreground/50" />
       </div>

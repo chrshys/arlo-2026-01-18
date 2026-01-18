@@ -110,7 +110,7 @@ export function DraggableTaskRow({
       style={style}
       onClick={handleClick}
       className={cn(
-        'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left cursor-pointer',
+        'group w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left cursor-pointer',
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
         isCompleted && !shouldHide && 'opacity-60',
@@ -120,7 +120,7 @@ export function DraggableTaskRow({
       <div
         {...attributes}
         {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+        className="shrink-0 cursor-grab active:cursor-grabbing touch-none opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <GripVertical className="h-4 w-4 text-muted-foreground/50" />
       </div>
