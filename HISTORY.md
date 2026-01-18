@@ -1354,3 +1354,73 @@ export const create = internalMutation({
 **Commits:** 25 commits covering full implementation
 
 **Result:** Full multi-user authentication. Each user sees only their own data. Sign-in/sign-up pages match app theme. Arlo operates on the authenticated user's data.
+
+---
+
+### 2026-01-18 (continued) — Production Auth Fix & Security Hardening
+
+**Focus:** Fix production authentication and secure unauthenticated endpoints.
+
+**Issue 1: Production Auth Failure**
+
+Users could sign in on production (arlobot.com) but got auth errors when accessing protected routes:
+
+```
+Failed to authenticate: "No auth provider found matching the given token. Check that your JWT's issuer and audience match one of your configured providers: [OIDC(domain=https://correct-fowl-52.clerk.accounts.dev, app_id=convex)]"
+```
+
+**Root Cause:** The `convex/auth.config.ts` only had the development Clerk issuer. Production uses a custom domain (`clerk.arlobot.com`), which has a different issuer URL.
+
+**Fix:** Added both issuers to auth config:
+
+```typescript
+// convex/auth.config.ts
+export default {
+  providers: [
+    {
+      // Production
+      domain: 'https://clerk.arlobot.com',
+      applicationID: 'convex',
+    },
+    {
+      // Development
+      domain: 'https://correct-fowl-52.clerk.accounts.dev',
+      applicationID: 'convex',
+    },
+  ],
+}
+```
+
+**Issue 2: Unauthenticated Endpoints**
+
+Discovered that several Convex endpoints lacked authentication:
+
+| File                | Endpoint                     | Issue            |
+| ------------------- | ---------------------------- | ---------------- |
+| `convex/threads.ts` | `list`, `create`, `messages` | No auth required |
+| `convex/usage.ts`   | `activityLog`                | No auth required |
+
+These were accessible without authentication, potentially exposing data.
+
+**Fix:** Added `requireCurrentUser(ctx)` to all public queries/mutations in both files.
+
+**Files Modified:**
+
+| File                    | Changes                                    |
+| ----------------------- | ------------------------------------------ |
+| `convex/auth.config.ts` | Added production Clerk issuer              |
+| `convex/threads.ts`     | Added auth to `list`, `create`, `messages` |
+| `convex/usage.ts`       | Added auth to `activityLog`                |
+
+**Deployment:** Changes deployed to production via `npx convex deploy -y`.
+
+**Lesson Learned:** When using Clerk with a custom domain for production, the issuer URL differs from development. Both issuers must be configured in Convex auth config.
+
+**Security Audit Notes:**
+
+Files correctly NOT requiring auth (internal-only):
+
+- `convex/activity.ts` — only `internalMutation` (not client-callable)
+- `convex/users.ts` — `ensureUser` checks identity internally; others are `internal*`
+
+**Result:** Production auth working. All public endpoints now require authentication.

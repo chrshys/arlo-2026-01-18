@@ -1,6 +1,7 @@
 import { query } from './_generated/server'
 import { v } from 'convex/values'
 import { components } from './_generated/api'
+import { requireCurrentUser } from './lib/auth'
 
 interface ActivityItem {
   _id: string
@@ -20,11 +21,12 @@ export const activityLog = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<ActivityItem[]> => {
+    await requireCurrentUser(ctx)
     const limit = args.limit ?? 25
     const threadPageSize = Math.min(100, Math.max(10, limit * 2))
     const messagesPerThread = Math.min(50, Math.max(5, Math.ceil(limit / 2)))
 
-    // Get all threads (no userId filter for MVP without auth)
+    // Get all threads for the current user
     const threadsResult = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
       order: 'desc',
       paginationOpts: { cursor: null, numItems: threadPageSize },
