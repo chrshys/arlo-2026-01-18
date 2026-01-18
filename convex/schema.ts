@@ -2,31 +2,51 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 export default defineSchema({
+  // Users synced from Clerk
+  users: defineTable({
+    clerkId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_clerk_id', ['clerkId'])
+    .index('by_email', ['email']),
+
   folders: defineTable({
+    userId: v.id('users'),
     name: v.string(),
     color: v.optional(v.string()),
     icon: v.optional(v.string()),
     sortOrder: v.number(),
     createdAt: v.number(),
-  }),
+  }).index('by_user', ['userId']),
 
   projects: defineTable({
+    userId: v.id('users'),
     name: v.string(),
-    folderId: v.optional(v.id('folders')), // null = Inbox
+    folderId: v.optional(v.id('folders')),
     color: v.optional(v.string()),
     icon: v.optional(v.string()),
     sortOrder: v.number(),
     createdAt: v.number(),
-  }).index('by_folder', ['folderId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_folder', ['folderId']),
 
   sections: defineTable({
+    userId: v.id('users'),
     name: v.string(),
     projectId: v.id('projects'),
     sortOrder: v.number(),
     createdAt: v.number(),
-  }).index('by_project', ['projectId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_project', ['projectId']),
 
   tasks: defineTable({
+    userId: v.id('users'),
     title: v.string(),
     description: v.optional(v.string()),
     projectId: v.optional(v.id('projects')),
@@ -42,21 +62,26 @@ export default defineSchema({
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
   })
+    .index('by_user', ['userId'])
     .index('by_status', ['status'])
     .index('by_project', ['projectId'])
     .index('by_due_date', ['dueDate']),
 
   subtasks: defineTable({
+    userId: v.id('users'),
     title: v.string(),
     taskId: v.id('tasks'),
     completed: v.boolean(),
     sortOrder: v.number(),
     createdAt: v.number(),
-  }).index('by_task', ['taskId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_task', ['taskId']),
 
   notes: defineTable({
+    userId: v.id('users'),
     title: v.string(),
-    content: v.string(), // ProseMirror JSON
+    content: v.string(),
     projectId: v.optional(v.id('projects')),
     sectionId: v.optional(v.id('sections')),
     sortOrder: v.optional(v.number()),
@@ -64,15 +89,19 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_user', ['userId'])
     .index('by_project', ['projectId'])
     .index('by_updated', ['updatedAt']),
 
   activity: defineTable({
+    userId: v.id('users'),
     action: v.string(),
     actor: v.union(v.literal('user'), v.literal('arlo')),
     outcome: v.union(v.literal('success'), v.literal('error')),
     targetId: v.optional(v.string()),
     details: v.optional(v.string()),
     createdAt: v.number(),
-  }).index('by_created_at', ['createdAt']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_created_at', ['createdAt']),
 })
