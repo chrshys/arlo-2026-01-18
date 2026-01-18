@@ -3,11 +3,16 @@ import { v } from 'convex/values'
 import { saveMessage } from '@convex-dev/agent'
 import { components, internal } from './_generated/api'
 import { arlo } from './arlo/agent'
+import { requireCurrentUser } from './lib/auth'
+import { Id } from './_generated/dataModel'
 
 // User sends a message
 export const send = mutation({
   args: { prompt: v.string(), threadId: v.string() },
   handler: async (ctx, { prompt, threadId }) => {
+    // Require authenticated user
+    const user = await requireCurrentUser(ctx)
+
     const { messageId } = await saveMessage(ctx, components.agent, {
       threadId,
       prompt,
@@ -29,6 +34,7 @@ export const send = mutation({
     await ctx.scheduler.runAfter(0, internal.chat.generateResponse, {
       threadId,
       promptMessageId: messageId,
+      userId: user._id,
     })
     return messageId
   },
@@ -36,8 +42,18 @@ export const send = mutation({
 
 // Arlo generates a response
 export const generateResponse = internalAction({
-  args: { threadId: v.string(), promptMessageId: v.string() },
-  handler: async (ctx, { threadId, promptMessageId }) => {
-    await arlo.generateText(ctx, { threadId }, { promptMessageId })
+  args: {
+    threadId: v.string(),
+    promptMessageId: v.string(),
+    userId: v.id('users'),
+  },
+  handler: async (ctx, { threadId, promptMessageId, userId }) => {
+    // Pass userId via context so tools can access it
+    await arlo.generateText(
+      // Extend context with userId for tools
+      { ...ctx, userId } as typeof ctx & { userId: Id<'users'> },
+      { threadId },
+      { promptMessageId }
+    )
   },
 })
