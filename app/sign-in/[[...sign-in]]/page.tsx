@@ -1,17 +1,25 @@
+'use client'
+
 import { SignIn } from '@clerk/nextjs'
+import { dark } from '@clerk/themes'
+import { useTheme } from 'next-themes'
 
 export default function SignInPage() {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <SignIn
         appearance={{
+          baseTheme: isDark ? dark : undefined,
           variables: {
-            colorPrimary: 'hsl(0 0% 9%)',
-            colorBackground: 'hsl(0 0% 100%)',
-            colorText: 'hsl(0 0% 3.9%)',
-            colorTextSecondary: 'hsl(0 0% 45.1%)',
-            colorInputBackground: 'hsl(0 0% 100%)',
-            colorInputText: 'hsl(0 0% 3.9%)',
+            colorPrimary: isDark ? 'hsl(0 0% 98%)' : 'hsl(0 0% 9%)',
+            colorBackground: isDark ? 'hsl(0 0% 3.9%)' : 'hsl(0 0% 100%)',
+            colorText: isDark ? 'hsl(0 0% 98%)' : 'hsl(0 0% 3.9%)',
+            colorTextSecondary: isDark ? 'hsl(0 0% 63.9%)' : 'hsl(0 0% 45.1%)',
+            colorInputBackground: isDark ? 'hsl(0 0% 3.9%)' : 'hsl(0 0% 100%)',
+            colorInputText: isDark ? 'hsl(0 0% 98%)' : 'hsl(0 0% 3.9%)',
             borderRadius: '0.5rem',
           },
           elements: {
