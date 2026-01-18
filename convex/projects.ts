@@ -1,26 +1,30 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { requireCurrentUser } from './lib/auth'
 
 export const list = query({
   handler: async (ctx) => {
-    return await ctx.db.query('projects').collect()
+    const user = await requireCurrentUser(ctx)
+    return await ctx.db
+      .query('projects')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
   },
 })
 
 export const listByFolder = query({
   args: { folderId: v.optional(v.id('folders')) },
   handler: async (ctx, { folderId }) => {
-    if (folderId === undefined) {
-      // Get projects without a folder (Inbox projects)
-      return await ctx.db
-        .query('projects')
-        .filter((q) => q.eq(q.field('folderId'), undefined))
-        .collect()
-    }
-    return await ctx.db
+    const user = await requireCurrentUser(ctx)
+    const allProjects = await ctx.db
       .query('projects')
-      .withIndex('by_folder', (q) => q.eq('folderId', folderId))
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect()
+
+    if (folderId === undefined) {
+      return allProjects.filter((p) => p.folderId === undefined)
+    }
+    return allProjects.filter((p) => p.folderId === folderId)
   },
 })
 
@@ -32,10 +36,15 @@ export const create = mutation({
     icon: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const projects = await ctx.db.query('projects').collect()
+    const user = await requireCurrentUser(ctx)
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
     const maxSortOrder = projects.reduce((max, p) => Math.max(max, p.sortOrder), -1)
 
     return await ctx.db.insert('projects', {
+      userId: user._id,
       name: args.name,
       folderId: args.folderId,
       color: args.color,
@@ -55,6 +64,10 @@ export const update = mutation({
     icon: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+    const project = await ctx.db.get(args.id)
+    if (!project || project.userId !== user._id) throw new Error('Not found')
+
     const { id, ...updates } = args
     const filtered = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined))
     if (Object.keys(filtered).length > 0) {
@@ -66,6 +79,10 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id('projects') },
   handler: async (ctx, { id }) => {
+    const user = await requireCurrentUser(ctx)
+    const project = await ctx.db.get(id)
+    if (!project || project.userId !== user._id) throw new Error('Not found')
+
     // Delete all sections in this project
     const sections = await ctx.db
       .query('sections')
@@ -95,8 +112,12 @@ export const reorder = mutation({
     orderedIds: v.array(v.id('projects')),
   },
   handler: async (ctx, { orderedIds }) => {
+    const user = await requireCurrentUser(ctx)
     for (let i = 0; i < orderedIds.length; i++) {
-      await ctx.db.patch(orderedIds[i], { sortOrder: i })
+      const project = await ctx.db.get(orderedIds[i])
+      if (project && project.userId === user._id) {
+        await ctx.db.patch(orderedIds[i], { sortOrder: i })
+      }
     }
   },
 })
@@ -107,6 +128,10 @@ export const moveToFolder = mutation({
     folderId: v.optional(v.id('folders')),
   },
   handler: async (ctx, { id, folderId }) => {
+    const user = await requireCurrentUser(ctx)
+    const project = await ctx.db.get(id)
+    if (!project || project.userId !== user._id) throw new Error('Not found')
+
     await ctx.db.patch(id, { folderId })
   },
 })
