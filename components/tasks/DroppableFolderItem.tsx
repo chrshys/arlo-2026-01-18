@@ -27,6 +27,8 @@ interface DroppableFolderItemProps {
   color?: string
   projects: Project[]
   isDropTarget?: boolean
+  isSelected?: boolean
+  onSelect?: (folderId: Id<'folders'>) => void
   onReorderProjects: (orderedIds: Id<'projects'>[]) => Promise<void>
 }
 
@@ -36,6 +38,8 @@ export function DroppableFolderItem({
   color,
   projects,
   isDropTarget = false,
+  isSelected = false,
+  onSelect,
 }: DroppableFolderItemProps) {
   const { expandedFolders, toggleFolder, expandFolder } = useTaskNavigation()
   const { activeType } = useUnifiedDrag()
@@ -140,7 +144,8 @@ export function DroppableFolderItem({
           'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm transition-colors',
           'hover:bg-accent/50',
           isDragging && 'opacity-50 bg-accent',
-          isDropTarget && isOver && 'bg-primary/15'
+          isDropTarget && isOver && 'bg-primary/15',
+          isSelected && 'bg-accent border-l-2 border-primary'
         )}
       >
         <div
@@ -168,16 +173,29 @@ export function DroppableFolderItem({
             />
           </div>
         ) : (
-          <button
-            onClick={() => toggleFolder(folderId)}
-            className="flex items-center gap-2 flex-1 min-w-0"
-          >
-            <ChevronRight
-              className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isExpanded && 'rotate-90')}
-            />
-            <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
-            <span className="flex-1 text-left truncate font-medium">{name}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {/* Chevron - toggle expand/collapse */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleFolder(folderId)
+              }}
+              className="shrink-0 p-0.5 hover:bg-accent rounded"
+            >
+              <ChevronRight
+                className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')}
+              />
+            </button>
+
+            {/* Name - select folder */}
+            <button
+              onClick={() => onSelect?.(folderId)}
+              className="flex items-center gap-2 flex-1 min-w-0"
+            >
+              <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
+              <span className="flex-1 text-left truncate font-medium">{name}</span>
+            </button>
+          </div>
         )}
 
         <div className="relative shrink-0" ref={menuRef}>
