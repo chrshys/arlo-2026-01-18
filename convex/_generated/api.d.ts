@@ -14,6 +14,8 @@ import type * as arlo_mutations from "../arlo/mutations.js";
 import type * as arlo_tools from "../arlo/tools.js";
 import type * as chat from "../chat.js";
 import type * as folders from "../folders.js";
+import type * as http from "../http.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as notes from "../notes.js";
 import type * as projects from "../projects.js";
 import type * as sections from "../sections.js";
@@ -21,6 +23,7 @@ import type * as subtasks from "../subtasks.js";
 import type * as tasks from "../tasks.js";
 import type * as threads from "../threads.js";
 import type * as usage from "../usage.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -35,6 +38,8 @@ declare const fullApi: ApiFromModules<{
   "arlo/tools": typeof arlo_tools;
   chat: typeof chat;
   folders: typeof folders;
+  http: typeof http;
+  "lib/auth": typeof lib_auth;
   notes: typeof notes;
   projects: typeof projects;
   sections: typeof sections;
@@ -42,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   threads: typeof threads;
   usage: typeof usage;
+  users: typeof users;
 }>;
 
 /**
