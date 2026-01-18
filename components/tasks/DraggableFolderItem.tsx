@@ -17,7 +17,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronRight, Folder, GripVertical } from 'lucide-react'
+import { ChevronRight, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useUnifiedDrag } from './TasksView'
@@ -36,7 +36,7 @@ interface DraggableFolderItemProps {
 export function DraggableFolderItem({
   folderId,
   name,
-  color,
+  color: _color,
   isDropTarget = false,
 }: DraggableFolderItemProps) {
   const { expandedFolders, toggleFolder } = useTaskNavigation()
@@ -128,7 +128,6 @@ export function DraggableFolderItem({
           <ChevronRight
             className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isExpanded && 'rotate-90')}
           />
-          <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
           <span className="flex-1 text-left truncate font-medium">{name}</span>
         </button>
       </div>

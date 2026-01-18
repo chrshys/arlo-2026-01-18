@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronRight, Folder } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useQuery } from 'convex/react'
@@ -14,7 +14,7 @@ interface FolderItemProps {
   color?: string
 }
 
-export function FolderItem({ folderId, name, color }: FolderItemProps) {
+export function FolderItem({ folderId, name, color: _color }: FolderItemProps) {
   const { expandedFolders, toggleFolder } = useTaskNavigation()
   const projects = useQuery(api.projects.listByFolder, { folderId })
 
@@ -33,7 +33,6 @@ export function FolderItem({ folderId, name, color }: FolderItemProps) {
         <ChevronRight
           className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isExpanded && 'rotate-90')}
         />
-        <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
         <span className="flex-1 text-left truncate font-medium">{name}</span>
       </button>
 

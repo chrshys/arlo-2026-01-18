@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronRight, Folder, GripVertical, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, GripVertical, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useMutation } from 'convex/react'
@@ -35,7 +35,7 @@ interface DroppableFolderItemProps {
 export function DroppableFolderItem({
   folderId,
   name,
-  color,
+  color: _color,
   projects,
   isDropTarget = false,
   isSelected = false,
@@ -178,7 +178,6 @@ export function DroppableFolderItem({
             <ChevronRight
               className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isExpanded && 'rotate-90')}
             />
-            <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
             <input
               ref={inputRef}
               type="text"
@@ -209,7 +208,6 @@ export function DroppableFolderItem({
               onClick={() => onSelect?.(folderId)}
               className="flex items-center gap-2 flex-1 min-w-0"
             >
-              <Folder className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
               <span className="flex-1 text-left truncate font-medium">{name}</span>
             </button>
           </div>

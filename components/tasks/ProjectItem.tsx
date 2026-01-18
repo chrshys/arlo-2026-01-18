@@ -36,8 +36,6 @@ export function ProjectItem({ projectId, name, color, indent = 0 }: ProjectItemP
       )}
       style={{ paddingLeft: `${12 + indent * 16}px` }}
     >
-      {/* Spacer to align with folder chevron */}
-      <div className="w-3.5 shrink-0" />
       <Hash className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
       <span className="flex-1 text-left truncate">{name}</span>
       {pendingCount > 0 && <span className="text-xs text-muted-foreground">{pendingCount}</span>}

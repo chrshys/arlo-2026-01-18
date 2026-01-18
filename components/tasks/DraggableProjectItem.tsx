@@ -163,8 +163,6 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
 
       {isEditing ? (
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Spacer to align with folder chevron */}
-          <div className="w-3.5 shrink-0" />
           <Hash className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
           <input
             ref={inputRef}
@@ -178,8 +176,6 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
         </div>
       ) : (
         <button onClick={handleClick} className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Spacer to align with folder chevron */}
-          <div className="w-3.5 shrink-0" />
           <Hash className="h-3.5 w-3.5 shrink-0" style={color ? { color } : undefined} />
           <span className="flex-1 text-left truncate">{name}</span>
         </button>
