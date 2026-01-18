@@ -10,10 +10,12 @@ import { TaskListHeader } from './TaskListHeader'
 import { SectionGroup } from './SectionGroup'
 import { QuickAddTask } from './QuickAddTask'
 import { DraggableTaskRow } from './DraggableTaskRow'
+import { CollapsibleProject } from './CollapsibleProject'
 import { NoteRow } from '@/components/notes/NoteRow'
 import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { createDragId, parseDragId } from '@/lib/drag-utils'
+import { Folder } from 'lucide-react'
 
 interface TaskListPanelProps {
   className?: string
@@ -65,6 +67,17 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
     selection.type === 'project' ? { projectId: selection.projectId } : 'skip'
   )
 
+  // Folder data fetching
+  const selectedFolder = useQuery(
+    api.folders.get,
+    selection.type === 'folder' ? { id: selection.folderId } : 'skip'
+  )
+
+  const folderProjects = useQuery(
+    api.projects.listByFolder,
+    selection.type === 'folder' ? { folderId: selection.folderId } : 'skip'
+  )
+
   // Determine which tasks to show
   let tasks: typeof inboxTasks = undefined
   let isSmartList = false
@@ -85,12 +98,13 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
         tasks = next7Tasks
         break
     }
-  } else {
+  } else if (selection.type === 'project') {
     tasks = projectTasks
     notes = projectNotes
   }
+  // For folder view, we don't use the tasks variable - handled separately
 
-  const isLoading = tasks === undefined
+  const isLoading = selection.type === 'folder' ? folderProjects === undefined : tasks === undefined
 
   return (
     <div className={cn('h-full flex flex-col', className)}>
@@ -104,6 +118,13 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
           <div className="flex items-center justify-center h-32 text-muted-foreground">
             Loading...
           </div>
+        ) : selection.type === 'folder' ? (
+          // Folder view - shows all projects in the folder
+          <FolderView
+            folderId={selection.folderId}
+            folderName={selectedFolder?.name ?? 'Folder'}
+            projects={folderProjects ?? []}
+          />
         ) : isSmartList ? (
           // Smart list view - flat list of tasks
           <SmartListView
@@ -363,5 +384,75 @@ function ProjectView({
         </div>
       )}
     </div>
+  )
+}
+
+interface FolderViewProps {
+  folderId: Id<'folders'>
+  folderName: string
+  projects: Array<{
+    _id: Id<'projects'>
+    name: string
+    color?: string
+  }>
+}
+
+function FolderView({ folderName, projects }: FolderViewProps) {
+  return (
+    <div>
+      <div className="px-3 py-2 border-b border-border mb-2">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Folder className="h-5 w-5" />
+          {folderName}
+        </h2>
+      </div>
+
+      {projects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+          <p>No projects in this folder</p>
+        </div>
+      ) : (
+        <div>
+          {projects.map((project) => (
+            <FolderProjectWrapper
+              key={project._id}
+              projectId={project._id}
+              projectName={project.name}
+              projectColor={project.color}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Wrapper that fetches data for each project in folder view
+function FolderProjectWrapper({
+  projectId,
+  projectName,
+  projectColor,
+}: {
+  projectId: Id<'projects'>
+  projectName: string
+  projectColor?: string
+}) {
+  const tasks = useQuery(api.tasks.listByProject, { projectId })
+  const notes = useQuery(api.notes.listByProject, { projectId })
+  const sections = useQuery(api.sections.listByProject, { projectId })
+
+  if (tasks === undefined || sections === undefined) {
+    return null // Loading
+  }
+
+  return (
+    <CollapsibleProject
+      projectId={projectId}
+      projectName={projectName}
+      projectColor={projectColor}
+      tasks={tasks}
+      notes={notes ?? []}
+      sections={sections}
+    />
   )
 }
