@@ -4,11 +4,12 @@ import { internal } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 
 // Helper to get userId from context (set by agent)
-function getUserId(ctx: { userId?: Id<'users'> }): Id<'users'> {
+// The context passes userId as a string, which we cast to Id<'users'>
+function getUserId(ctx: { userId?: string }): Id<'users'> {
   if (!ctx.userId) {
     throw new Error('User context not available')
   }
-  return ctx.userId
+  return ctx.userId as Id<'users'>
 }
 
 export const createTask = createTool({
