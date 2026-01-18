@@ -49,12 +49,13 @@ export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps)
     const config = SMART_LIST_CONFIG[selection.list]
     title = config.label
     Icon = config.icon
-  } else {
+  } else if (selection.type === 'project') {
     const project = projects?.find((p) => p._id === selection.projectId)
     if (project) {
       title = project.name
     }
   }
+  // Folder case will be handled in Task 7
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

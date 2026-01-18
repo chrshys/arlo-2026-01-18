@@ -8,6 +8,7 @@ export type SmartListType = 'inbox' | 'today' | 'next7days'
 export type TaskNavSelection =
   | { type: 'smart-list'; list: SmartListType }
   | { type: 'project'; projectId: Id<'projects'> }
+  | { type: 'folder'; folderId: Id<'folders'> }
 
 interface TaskNavigationContextValue {
   selection: TaskNavSelection
