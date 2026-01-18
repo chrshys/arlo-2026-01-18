@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useQuery, useMutation } from 'convex/react'
@@ -11,11 +11,11 @@ import { SectionGroup } from './SectionGroup'
 import { QuickAddTask } from './QuickAddTask'
 import { DraggableTaskRow } from './DraggableTaskRow'
 import { CollapsibleProject } from './CollapsibleProject'
-import { NoteRow } from '@/components/notes/NoteRow'
+import { DraggableNoteRow } from '@/components/notes/DraggableNoteRow'
 import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { createDragId, parseDragId } from '@/lib/drag-utils'
-import { ChevronRight, Folder } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 interface TaskListPanelProps {
   className?: string
@@ -68,11 +68,6 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
   )
 
   // Folder data fetching
-  const selectedFolder = useQuery(
-    api.folders.get,
-    selection.type === 'folder' ? { id: selection.folderId } : 'skip'
-  )
-
   const folderProjects = useQuery(
     api.projects.listByFolder,
     selection.type === 'folder' ? { folderId: selection.folderId } : 'skip'
@@ -120,11 +115,7 @@ export function TaskListPanel({ className }: TaskListPanelProps) {
           </div>
         ) : selection.type === 'folder' ? (
           // Folder view - shows all projects in the folder
-          <FolderView
-            folderId={selection.folderId}
-            folderName={selectedFolder?.name ?? 'Folder'}
-            projects={folderProjects ?? []}
-          />
+          <FolderView projects={folderProjects ?? []} />
         ) : isSmartList ? (
           // Smart list view - flat list of tasks
           <SmartListView
@@ -181,7 +172,11 @@ interface SmartListViewProps {
 
 function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: SmartListViewProps) {
   const { selectedNoteId, setSelectedNoteId } = useTaskNavigation()
-  const reorderTasks = useMutation(api.tasks.reorder)
+  const reorderMixed = useMutation(api.notes.reorderMixed)
+  const [optimisticMixedOrder, setOptimisticMixedOrder] = useState<Array<{
+    type: 'task' | 'note'
+    id: string
+  }> | null>(null)
 
   const sortedNotes = notes.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
@@ -193,7 +188,27 @@ function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: Smar
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
-  // Listen to drag events from parent DndContext for task reordering
+  // Combined and sorted items for mixed ordering
+  const combinedItems = useMemo(() => {
+    if (optimisticMixedOrder) {
+      return optimisticMixedOrder
+    }
+    const items: Array<{ type: 'task' | 'note'; id: string; sortOrder: number }> = [
+      ...pendingTasks.map((t) => ({
+        type: 'task' as const,
+        id: t._id,
+        sortOrder: t.sortOrder ?? 0,
+      })),
+      ...sortedNotes.map((n) => ({
+        type: 'note' as const,
+        id: n._id,
+        sortOrder: n.sortOrder ?? 0,
+      })),
+    ]
+    return items.sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [pendingTasks, sortedNotes, optimisticMixedOrder])
+
+  // Listen to drag events from parent DndContext for mixed task/note reordering
   useDndMonitor({
     onDragEnd: async (event: DragEndEvent) => {
       const { active, over } = event
@@ -203,19 +218,28 @@ function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: Smar
       const activeParsed = parseDragId(active.id as string)
       const overParsed = parseDragId(over.id as string)
 
-      // Only handle task-to-task reordering
-      if (activeParsed?.type === 'task' && overParsed?.type === 'task') {
-        const oldIndex = pendingTasks.findIndex((t) => t._id === activeParsed.id)
-        const newIndex = pendingTasks.findIndex((t) => t._id === overParsed.id)
+      // Only handle task/note reordering
+      const isLocalReorder =
+        (activeParsed?.type === 'task' || activeParsed?.type === 'note') &&
+        (overParsed?.type === 'task' || overParsed?.type === 'note')
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const reordered = [...pendingTasks]
-          const [removed] = reordered.splice(oldIndex, 1)
-          reordered.splice(newIndex, 0, removed)
+      if (!isLocalReorder) return
 
-          await reorderTasks({ orderedIds: reordered.map((t) => t._id) })
-        }
-      }
+      const oldIndex = combinedItems.findIndex(
+        (i) => createDragId(i.type, i.id) === (active.id as string)
+      )
+      const newIndex = combinedItems.findIndex(
+        (i) => createDragId(i.type, i.id) === (over.id as string)
+      )
+
+      if (oldIndex === -1 || newIndex === -1) return
+
+      const reordered = arrayMove([...combinedItems], oldIndex, newIndex)
+      const newOrder = reordered.map((i) => ({ type: i.type, id: i.id }))
+
+      setOptimisticMixedOrder(newOrder)
+      await reorderMixed({ items: newOrder })
+      setOptimisticMixedOrder(null)
     },
   })
 
@@ -229,31 +253,38 @@ function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: Smar
 
   return (
     <div className="space-y-0.5">
-      {/* Notes */}
-      {sortedNotes.map((note) => (
-        <NoteRow
-          key={note._id}
-          noteId={note._id}
-          title={note.title}
-          isSelected={selectedNoteId === note._id}
-          onSelect={setSelectedNoteId}
-        />
-      ))}
-
       <SortableContext
-        items={pendingTasks.map((t) => createDragId('task', t._id))}
+        items={combinedItems.map((i) => createDragId(i.type, i.id))}
         strategy={verticalListSortingStrategy}
       >
-        {pendingTasks.map((task) => (
-          <DraggableTaskRow
-            key={task._id}
-            taskId={task._id}
-            title={task.title}
-            status={task.status}
-            priority={task.priority}
-            dueDate={task.dueDate}
-          />
-        ))}
+        {combinedItems.map((item) => {
+          if (item.type === 'task') {
+            const task = pendingTasks.find((t) => t._id === item.id)
+            if (!task) return null
+            return (
+              <DraggableTaskRow
+                key={task._id}
+                taskId={task._id}
+                title={task.title}
+                status={task.status}
+                priority={task.priority}
+                dueDate={task.dueDate}
+              />
+            )
+          } else {
+            const note = sortedNotes.find((n) => n._id === item.id)
+            if (!note) return null
+            return (
+              <DraggableNoteRow
+                key={note._id}
+                noteId={note._id}
+                title={note.title}
+                isSelected={selectedNoteId === note._id}
+                onSelect={setSelectedNoteId}
+              />
+            )
+          }
+        })}
       </SortableContext>
 
       <QuickAddTask autoOpen={isAddingTask} onAutoOpenHandled={onAddingTaskHandled} />
@@ -424,8 +455,6 @@ function ProjectView({
 }
 
 interface FolderViewProps {
-  folderId: Id<'folders'>
-  folderName: string
   projects: Array<{
     _id: Id<'projects'>
     name: string
@@ -433,16 +462,9 @@ interface FolderViewProps {
   }>
 }
 
-function FolderView({ folderName, projects }: FolderViewProps) {
+function FolderView({ projects }: FolderViewProps) {
   return (
     <div>
-      <div className="px-3 py-2 border-b border-border mb-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Folder className="h-5 w-5" />
-          {folderName}
-        </h2>
-      </div>
-
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
           <p>No projects in this folder</p>
