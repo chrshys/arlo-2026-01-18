@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation, internalQuery } from './_generated/server'
 import { v } from 'convex/values'
+import type { Id } from './_generated/dataModel'
 
 export const list = query({
   handler: async (ctx) => {
@@ -124,6 +125,66 @@ export const moveToProject = mutation({
       projectId,
       sectionId: undefined,
       sortOrder: minSortOrder - 1,
+      updatedAt: Date.now(),
+    })
+  },
+})
+
+export const reorderMixed = mutation({
+  args: {
+    items: v.array(
+      v.object({
+        type: v.union(v.literal('task'), v.literal('note')),
+        id: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, { items }) => {
+    for (let i = 0; i < items.length; i++) {
+      const { type, id } = items[i]
+      if (type === 'task') {
+        await ctx.db.patch(id as Id<'tasks'>, { sortOrder: i })
+      } else {
+        await ctx.db.patch(id as Id<'notes'>, { sortOrder: i })
+      }
+    }
+  },
+})
+
+export const moveToSection = mutation({
+  args: {
+    noteId: v.id('notes'),
+    projectId: v.id('projects'),
+    sectionId: v.optional(v.id('sections')),
+  },
+  handler: async (ctx, { noteId, projectId, sectionId }) => {
+    // Get existing items in target to calculate sortOrder
+    const existingTasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_project', (q) => q.eq('projectId', projectId))
+      .collect()
+    const existingNotes = await ctx.db
+      .query('notes')
+      .withIndex('by_project', (q) => q.eq('projectId', projectId))
+      .collect()
+
+    const relevantTasks = sectionId
+      ? existingTasks.filter((t) => t.sectionId === sectionId)
+      : existingTasks.filter((t) => t.sectionId === undefined)
+    const relevantNotes = sectionId
+      ? existingNotes.filter((n) => n.sectionId === sectionId)
+      : existingNotes.filter((n) => n.sectionId === undefined)
+
+    const maxSortOrder = Math.max(
+      ...relevantTasks.map((t) => t.sortOrder ?? 0),
+      ...relevantNotes.map((n) => n.sortOrder ?? 0),
+      -1
+    )
+
+    await ctx.db.patch(noteId, {
+      projectId,
+      sectionId,
+      sortOrder: maxSortOrder + 1,
       updatedAt: Date.now(),
     })
   },
