@@ -4,6 +4,7 @@ import { ConvexClientProvider } from '@/components/ConvexProvider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { PanelLayoutProvider } from '@/components/providers/panel-layout-provider'
 import { AppModeProvider } from '@/components/providers/app-mode-provider'
+import { UserProvider } from '@/components/providers/user-provider'
 
 export const metadata: Metadata = {
   title: 'Arlo',
@@ -23,9 +24,11 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <ConvexClientProvider>
-            <AppModeProvider>
-              <PanelLayoutProvider>{children}</PanelLayoutProvider>
-            </AppModeProvider>
+            <UserProvider>
+              <AppModeProvider>
+                <PanelLayoutProvider>{children}</PanelLayoutProvider>
+              </AppModeProvider>
+            </UserProvider>
           </ConvexClientProvider>
         </ThemeProvider>
       </body>
