@@ -7,7 +7,7 @@
  * - folder::ghi789
  */
 
-export type DragItemType = 'task' | 'project' | 'folder'
+export type DragItemType = 'task' | 'project' | 'folder' | 'note'
 
 export interface ParsedDragId {
   type: DragItemType
@@ -40,7 +40,7 @@ export function createDragId(type: DragItemType, id: string): string {
  * Check if a string is a valid drag item type
  */
 function isValidDragType(type: string): type is DragItemType {
-  return type === 'task' || type === 'project' || type === 'folder'
+  return type === 'task' || type === 'project' || type === 'folder' || type === 'note'
 }
 
 /**
