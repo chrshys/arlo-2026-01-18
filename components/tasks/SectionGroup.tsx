@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Id } from '@/convex/_generated/dataModel'
 import { NoteRow } from '@/components/notes/NoteRow'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
-import { useDndMonitor, type DragEndEvent } from '@dnd-kit/core'
+import { useDndMonitor, useDroppable, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -63,6 +63,18 @@ export function SectionGroup({
   const reorderTasks = useMutation(api.tasks.reorder)
   const updateSection = useMutation(api.sections.update)
   const removeSection = useMutation(api.sections.remove)
+
+  // Make sections droppable for cross-project moves in folder view
+  const droppableId = projectId
+    ? sectionId
+      ? `section::${projectId}::${sectionId}`
+      : `unsectioned::${projectId}`
+    : undefined
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: droppableId ?? 'disabled',
+    disabled: !droppableId,
+  })
 
   const pendingTasks = tasks
     .filter((t) => t.status === 'pending')
@@ -155,7 +167,7 @@ export function SectionGroup({
   }
 
   return (
-    <div className="mb-4">
+    <div ref={setDropRef} className={cn('mb-4', isOver && 'bg-primary/10 rounded-md')}>
       {sectionName && sectionId && (
         <div className="group flex items-center gap-1 px-3 py-1.5">
           <button
