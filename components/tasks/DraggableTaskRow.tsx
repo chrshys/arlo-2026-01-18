@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Circle, CheckCircle2, Flag } from 'lucide-react'
+import { GripVertical, Circle, CheckCircle2, Flag, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useUnifiedDrag } from './TasksView'
@@ -17,6 +17,7 @@ interface DraggableTaskRowProps {
   status: 'pending' | 'completed'
   priority?: 'none' | 'low' | 'medium' | 'high' | null
   dueDate?: number | null
+  reminders?: number[] | null
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -62,6 +63,7 @@ export function DraggableTaskRow({
   status,
   priority,
   dueDate,
+  reminders,
 }: DraggableTaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useTaskNavigation()
   const { activeId } = useUnifiedDrag()
@@ -134,6 +136,10 @@ export function DraggableTaskRow({
       </button>
 
       <span className={cn('flex-1 truncate', isCompleted && 'line-through')}>{title}</span>
+
+      {reminders && reminders.length > 0 && (
+        <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      )}
 
       {dueDate && (
         <span className={cn('text-xs shrink-0', getDueDateClass(dueDate))}>

@@ -1,6 +1,6 @@
 'use client'
 
-import { Circle, CheckCircle2, Flag } from 'lucide-react'
+import { Circle, CheckCircle2, Flag, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useMutation } from 'convex/react'
@@ -13,6 +13,7 @@ interface TaskRowProps {
   status: 'pending' | 'completed'
   priority?: 'none' | 'low' | 'medium' | 'high' | null
   dueDate?: number | null
+  reminders?: number[] | null
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -54,7 +55,7 @@ function getDueDateClass(timestamp: number): string {
   return 'text-muted-foreground'
 }
 
-export function TaskRow({ taskId, title, status, priority, dueDate }: TaskRowProps) {
+export function TaskRow({ taskId, title, status, priority, dueDate, reminders }: TaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useTaskNavigation()
   const completeTask = useMutation(api.tasks.completeFromUI)
   const reopenTask = useMutation(api.tasks.reopen)
@@ -97,6 +98,10 @@ export function TaskRow({ taskId, title, status, priority, dueDate }: TaskRowPro
       </button>
 
       <span className={cn('flex-1 truncate', isCompleted && 'line-through')}>{title}</span>
+
+      {reminders && reminders.length > 0 && (
+        <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      )}
 
       {dueDate && (
         <span className={cn('text-xs shrink-0', getDueDateClass(dueDate))}>

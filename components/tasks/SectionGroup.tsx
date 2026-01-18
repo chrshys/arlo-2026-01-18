@@ -21,6 +21,7 @@ interface Task {
   status: 'pending' | 'completed'
   priority?: 'none' | 'low' | 'medium' | 'high' | null
   dueDate?: number | null
+  reminders?: number[] | null
   sortOrder?: number | null
 }
 
@@ -318,6 +319,7 @@ export function SectionGroup({
                     status={task.status}
                     priority={task.priority}
                     dueDate={task.dueDate}
+                    reminders={task.reminders}
                   />
                 )
               } else {
@@ -367,6 +369,7 @@ export function SectionGroup({
                       status={task.status}
                       priority={task.priority}
                       dueDate={task.dueDate}
+                      reminders={task.reminders}
                     />
                   ))}
                 </div>

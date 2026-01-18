@@ -25,6 +25,7 @@ interface Task {
   status: 'pending' | 'completed'
   priority?: 'none' | 'low' | 'medium' | 'high' | null
   dueDate?: number | null
+  reminders?: number[] | null
   sortOrder?: number | null
 }
 
@@ -87,6 +88,7 @@ export function SortableTaskList({ tasks, showCompleted = false }: SortableTaskL
               status={task.status}
               priority={task.priority}
               dueDate={task.dueDate}
+              reminders={task.reminders}
             />
           ))}
         </SortableContext>
@@ -105,6 +107,7 @@ export function SortableTaskList({ tasks, showCompleted = false }: SortableTaskL
               status={task.status}
               priority={task.priority}
               dueDate={task.dueDate}
+              reminders={task.reminders}
             />
           ))}
         </div>

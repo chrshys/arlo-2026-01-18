@@ -151,6 +151,7 @@ interface TaskData {
   status: 'pending' | 'completed'
   priority?: 'none' | 'low' | 'medium' | 'high' | null
   dueDate?: number | null
+  reminders?: number[] | null
   sectionId?: Id<'sections'> | null
   sortOrder?: number | null
 }
@@ -269,6 +270,7 @@ function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: Smar
                 status={task.status}
                 priority={task.priority}
                 dueDate={task.dueDate}
+                reminders={task.reminders}
               />
             )
           } else {
@@ -302,6 +304,7 @@ function SmartListView({ tasks, notes, isAddingTask, onAddingTaskHandled }: Smar
               status={task.status}
               priority={task.priority}
               dueDate={task.dueDate}
+              reminders={task.reminders}
             />
           ))}
         </div>
@@ -428,6 +431,7 @@ function ProjectView({
                   status={task.status}
                   priority={task.priority}
                   dueDate={task.dueDate}
+                  reminders={task.reminders}
                 />
               ))}
             </div>
