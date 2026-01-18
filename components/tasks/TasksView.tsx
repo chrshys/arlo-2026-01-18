@@ -24,7 +24,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { parseDragId, type DragItemType } from '@/lib/drag-utils'
-import { Circle, Folder, Hash } from 'lucide-react'
+import { Circle, FileText, Folder, Hash } from 'lucide-react'
 import { PANEL_SIZES } from '@/types/panel-layout'
 
 // Shared storage key - panel sizes sync across views since IDs match
@@ -87,11 +87,14 @@ export function TasksView() {
   const moveTaskToProject = useMutation(api.tasks.moveToProject)
   const setDueToday = useMutation(api.tasks.setDueToday)
   const moveProjectToFolder = useMutation(api.projects.moveToFolder)
+  const moveNoteToSection = useMutation(api.notes.moveToSection)
+  const moveNoteToProject = useMutation(api.notes.moveToProject)
 
   // Get data for drag overlay and collision detection
   const projects = useQuery(api.projects.list)
   const folders = useQuery(api.folders.list)
   const tasks = useQuery(api.tasks.list)
+  const notes = useQuery(api.notes.list)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -293,6 +296,45 @@ export function TasksView() {
       return
     }
 
+    // Handle note drops
+    if (activeParsed?.type === 'note') {
+      const noteId = activeParsed.id as Id<'notes'>
+
+      // Handle section drops (cross-project or cross-section moves)
+      if (overIdStr.startsWith('section::')) {
+        const [, projectId, sectionId] = overIdStr.split('::')
+        await moveNoteToSection({
+          noteId,
+          projectId: projectId as Id<'projects'>,
+          sectionId: sectionId as Id<'sections'>,
+        })
+        return
+      }
+
+      if (overIdStr.startsWith('unsectioned::')) {
+        const [, projectId] = overIdStr.split('::')
+        await moveNoteToSection({
+          noteId,
+          projectId: projectId as Id<'projects'>,
+          sectionId: undefined,
+        })
+        return
+      }
+
+      // Dropping on a project in sidebar
+      const overParsed = parseDragId(overIdStr)
+      if (overParsed?.type === 'project') {
+        await moveNoteToProject({
+          id: noteId,
+          projectId: overParsed.id as Id<'projects'>,
+        })
+        return
+      }
+
+      // Note reordering (dropping on another note or task) - handled by SectionGroup
+      return
+    }
+
     // Handle project drops (existing logic from SortableFolderTree)
     if (activeParsed?.type === 'project' || projectIds.has(activeIdStr as Id<'projects'>)) {
       const projectId = (activeParsed?.id ?? activeIdStr) as Id<'projects'>
@@ -321,6 +363,7 @@ export function TasksView() {
 
   // Find active items for overlay
   const activeTask = activeType === 'task' ? tasks?.find((t) => t._id === activeId) : null
+  const activeNote = activeType === 'note' ? notes?.find((n) => n._id === activeId) : null
   const activeProject = activeType === 'project' ? projects?.find((p) => p._id === activeId) : null
   const activeFolder = activeType === 'folder' ? folders?.find((f) => f._id === activeId) : null
 
@@ -379,6 +422,12 @@ export function TasksView() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-accent shadow-lg">
                 <Circle className="h-4 w-4 text-muted-foreground" />
                 <span className="truncate max-w-[200px]">{activeTask.title}</span>
+              </div>
+            )}
+            {activeNote && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-accent shadow-lg">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate max-w-[200px]">{activeNote.title}</span>
               </div>
             )}
             {activeProject && (
