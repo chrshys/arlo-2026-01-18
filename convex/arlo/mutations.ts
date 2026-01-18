@@ -27,9 +27,18 @@ export const addReminder = internalMutation({
 })
 
 export const listProjectsAndFolders = internalQuery({
-  handler: async (ctx) => {
-    const projects = await ctx.db.query('projects').collect()
-    const folders = await ctx.db.query('folders').collect()
+  args: {
+    userId: v.id('users'),
+  },
+  handler: async (ctx, { userId }) => {
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    const folders = await ctx.db
+      .query('folders')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
 
     return {
       projects: projects.map((p) => ({
