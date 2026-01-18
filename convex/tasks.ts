@@ -222,9 +222,10 @@ export const moveToProject = mutation({
   args: {
     id: v.id('tasks'),
     projectId: v.optional(v.id('projects')),
+    sectionId: v.optional(v.id('sections')),
   },
-  handler: async (ctx, { id, projectId }) => {
-    // Get existing tasks in the target project (unsectioned only)
+  handler: async (ctx, { id, projectId, sectionId }) => {
+    // Get existing tasks in the target project
     const targetTasks = projectId
       ? await ctx.db
           .query('tasks')
@@ -235,15 +236,17 @@ export const moveToProject = mutation({
           .filter((q) => q.eq(q.field('projectId'), undefined))
           .collect()
 
-    // Filter to unsectioned tasks only
-    const unsectionedTasks = targetTasks.filter((t) => t.sectionId === undefined)
+    // Filter to tasks in the target section (or unsectioned)
+    const sectionTasks = targetTasks.filter((t) =>
+      sectionId ? t.sectionId === sectionId : t.sectionId === undefined
+    )
 
     // Find minimum sortOrder to place new task at top
-    const minSortOrder = unsectionedTasks.reduce((min, t) => Math.min(min, t.sortOrder ?? 0), 0)
+    const minSortOrder = sectionTasks.reduce((min, t) => Math.min(min, t.sortOrder ?? 0), 0)
 
     await ctx.db.patch(id, {
       projectId,
-      sectionId: undefined,
+      sectionId,
       sortOrder: minSortOrder - 1,
     })
   },

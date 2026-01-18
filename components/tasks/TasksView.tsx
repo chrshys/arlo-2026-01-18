@@ -114,7 +114,7 @@ export function TasksView() {
       const pointerCollisions = pointerWithin(args)
 
       if (activeType === 'task') {
-        // For tasks, prioritize drop targets (smart lists, projects)
+        // For tasks, prioritize drop targets (smart lists, projects, sections)
         if (pointerCollisions.length > 0) {
           // Check for smart list drops first
           const smartListCollision = pointerCollisions.find(
@@ -122,6 +122,15 @@ export function TasksView() {
           )
           if (smartListCollision) {
             return [smartListCollision]
+          }
+
+          // Check for section drops (for folder view cross-project moves)
+          const sectionCollision = pointerCollisions.find((c) => {
+            const id = c.id as string
+            return id.startsWith('section::') || id.startsWith('unsectioned::')
+          })
+          if (sectionCollision) {
+            return [sectionCollision]
           }
 
           // Then check for project drops
@@ -210,6 +219,27 @@ export function TasksView() {
       // Dropping on Today
       if (overIdStr === 'smart-list::today') {
         await setDueToday({ id: taskId })
+        return
+      }
+
+      // Handle section drops (for folder view cross-project moves)
+      if (overIdStr.startsWith('section::')) {
+        const [, projectId, sectionId] = overIdStr.split('::')
+        await moveTaskToProject({
+          id: taskId,
+          projectId: projectId as Id<'projects'>,
+          sectionId: sectionId as Id<'sections'>,
+        })
+        return
+      }
+
+      if (overIdStr.startsWith('unsectioned::')) {
+        const [, projectId] = overIdStr.split('::')
+        await moveTaskToProject({
+          id: taskId,
+          projectId: projectId as Id<'projects'>,
+          sectionId: undefined,
+        })
         return
       }
 
