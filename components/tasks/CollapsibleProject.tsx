@@ -37,6 +37,7 @@ interface CollapsibleProjectProps {
   notes: Note[]
   sections: Section[]
   defaultExpanded?: boolean
+  hideCompletedSection?: boolean
 }
 
 export function CollapsibleProject({
@@ -47,6 +48,7 @@ export function CollapsibleProject({
   notes,
   sections,
   defaultExpanded = true,
+  hideCompletedSection = false,
 }: CollapsibleProjectProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -85,7 +87,12 @@ export function CollapsibleProject({
           {(unsectionedTasks.length > 0 ||
             unsectionedNotes.length > 0 ||
             sections.length === 0) && (
-            <SectionGroup tasks={unsectionedTasks} notes={unsectionedNotes} projectId={projectId} />
+            <SectionGroup
+              tasks={unsectionedTasks}
+              notes={unsectionedNotes}
+              projectId={projectId}
+              hideCompletedSection={hideCompletedSection}
+            />
           )}
 
           {/* Sectioned tasks and notes */}
@@ -100,6 +107,7 @@ export function CollapsibleProject({
                 tasks={sectionTasks}
                 notes={sectionNotes}
                 projectId={projectId}
+                hideCompletedSection={hideCompletedSection}
               />
             )
           })}

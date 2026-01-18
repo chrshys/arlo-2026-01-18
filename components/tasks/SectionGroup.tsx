@@ -37,6 +37,7 @@ interface SectionGroupProps {
   notes?: Note[]
   projectId?: Id<'projects'>
   showCompleted?: boolean
+  hideCompletedSection?: boolean
   isAddingTask?: boolean
   onAddingTaskHandled?: () => void
 }
@@ -48,6 +49,7 @@ export function SectionGroup({
   notes = [],
   projectId,
   showCompleted = false,
+  hideCompletedSection = false,
   isAddingTask,
   onAddingTaskHandled,
 }: SectionGroupProps) {
@@ -269,7 +271,7 @@ export function SectionGroup({
             onAutoOpenHandled={onAddingTaskHandled}
           />
 
-          {completedTasks.length > 0 && (
+          {completedTasks.length > 0 && !hideCompletedSection && (
             <div className="mt-2 pt-2 border-t border-border">
               <button
                 onClick={() => setShowCompletedTasks(!showCompletedTasks)}

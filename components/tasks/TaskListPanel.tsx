@@ -453,6 +453,7 @@ function FolderProjectWrapper({
       tasks={tasks}
       notes={notes ?? []}
       sections={sections}
+      hideCompletedSection
     />
   )
 }
