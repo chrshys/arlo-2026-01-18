@@ -1,16 +1,16 @@
 'use client'
 
 import { ChevronRight, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { DraggableTaskRow } from './DraggableTaskRow'
 import { QuickAddTask } from './QuickAddTask'
 import { Button } from '@/components/ui/button'
 import { Id } from '@/convex/_generated/dataModel'
-import { NoteRow } from '@/components/notes/NoteRow'
+import { DraggableNoteRow } from '@/components/notes/DraggableNoteRow'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
 import { useDndMonitor, useDroppable, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { createDragId, parseDragId } from '@/lib/drag-utils'
@@ -60,10 +60,15 @@ export function SectionGroup({
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(sectionName ?? '')
   const [isAddingTaskToSection, setIsAddingTaskToSection] = useState(false)
+  const [optimisticTaskOrder, setOptimisticTaskOrder] = useState<Id<'tasks'>[] | null>(null)
+  const [optimisticMixedOrder, setOptimisticMixedOrder] = useState<Array<{
+    type: 'task' | 'note'
+    id: string
+  }> | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const reorderTasks = useMutation(api.tasks.reorder)
+  const reorderMixed = useMutation(api.notes.reorderMixed)
   const updateSection = useMutation(api.sections.update)
   const removeSection = useMutation(api.sections.remove)
 
@@ -79,15 +84,53 @@ export function SectionGroup({
     disabled: !droppableId,
   })
 
-  const pendingTasks = tasks
+  const basePendingTasks = tasks
     .filter((t) => t.status === 'pending')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  const pendingTasks = useMemo(() => {
+    if (!optimisticTaskOrder) return basePendingTasks
+    const byId = new Map(basePendingTasks.map((t) => [t._id, t]))
+    return optimisticTaskOrder.map((id) => byId.get(id)).filter(Boolean) as typeof basePendingTasks
+  }, [basePendingTasks, optimisticTaskOrder])
+
+  const baseOrder = useMemo(() => basePendingTasks.map((t) => t._id), [basePendingTasks])
+
+  useEffect(() => {
+    if (
+      optimisticTaskOrder &&
+      optimisticTaskOrder.length === baseOrder.length &&
+      optimisticTaskOrder.every((id, index) => id === baseOrder[index])
+    ) {
+      setOptimisticTaskOrder(null)
+    }
+  }, [optimisticTaskOrder, baseOrder])
 
   const completedTasks = tasks
     .filter((t) => t.status === 'completed')
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 
   const sortedNotes = notes.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  // Combined and sorted items for mixed ordering
+  const combinedItems = useMemo(() => {
+    if (optimisticMixedOrder) {
+      return optimisticMixedOrder
+    }
+    const items: Array<{ type: 'task' | 'note'; id: string; sortOrder: number }> = [
+      ...pendingTasks.map((t) => ({
+        type: 'task' as const,
+        id: t._id,
+        sortOrder: t.sortOrder ?? 0,
+      })),
+      ...sortedNotes.map((n) => ({
+        type: 'note' as const,
+        id: n._id,
+        sortOrder: n.sortOrder ?? 0,
+      })),
+    ]
+    return items.sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [pendingTasks, sortedNotes, optimisticMixedOrder])
 
   useEffect(() => {
     setEditedName(sectionName ?? '')
@@ -113,7 +156,7 @@ export function SectionGroup({
     }
   }, [showMenu])
 
-  // Listen to drag events from parent DndContext for task reordering
+  // Listen to drag events from parent DndContext for mixed task/note reordering
   useDndMonitor({
     onDragEnd: async (event: DragEndEvent) => {
       const { active, over } = event
@@ -123,19 +166,28 @@ export function SectionGroup({
       const activeParsed = parseDragId(active.id as string)
       const overParsed = parseDragId(over.id as string)
 
-      // Only handle task-to-task reordering within this section
-      if (activeParsed?.type === 'task' && overParsed?.type === 'task') {
-        const oldIndex = pendingTasks.findIndex((t) => t._id === activeParsed.id)
-        const newIndex = pendingTasks.findIndex((t) => t._id === overParsed.id)
+      // Only handle task/note reordering within this section
+      const isLocalReorder =
+        (activeParsed?.type === 'task' || activeParsed?.type === 'note') &&
+        (overParsed?.type === 'task' || overParsed?.type === 'note')
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const reordered = [...pendingTasks]
-          const [removed] = reordered.splice(oldIndex, 1)
-          reordered.splice(newIndex, 0, removed)
+      if (!isLocalReorder) return
 
-          await reorderTasks({ orderedIds: reordered.map((t) => t._id) })
-        }
-      }
+      const oldIndex = combinedItems.findIndex(
+        (i) => createDragId(i.type, i.id) === (active.id as string)
+      )
+      const newIndex = combinedItems.findIndex(
+        (i) => createDragId(i.type, i.id) === (over.id as string)
+      )
+
+      if (oldIndex === -1 || newIndex === -1) return
+
+      const reordered = arrayMove([...combinedItems], oldIndex, newIndex)
+      const newOrder = reordered.map((i) => ({ type: i.type, id: i.id }))
+
+      setOptimisticMixedOrder(newOrder)
+      await reorderMixed({ items: newOrder })
+      setOptimisticMixedOrder(null)
     },
   })
 
@@ -251,31 +303,38 @@ export function SectionGroup({
       {!isCollapsed && (
         <div className="space-y-0.5">
           <SortableContext
-            items={pendingTasks.map((t) => createDragId('task', t._id))}
+            items={combinedItems.map((i) => createDragId(i.type, i.id))}
             strategy={verticalListSortingStrategy}
           >
-            {pendingTasks.map((task) => (
-              <DraggableTaskRow
-                key={task._id}
-                taskId={task._id}
-                title={task.title}
-                status={task.status}
-                priority={task.priority}
-                dueDate={task.dueDate}
-              />
-            ))}
+            {combinedItems.map((item) => {
+              if (item.type === 'task') {
+                const task = pendingTasks.find((t) => t._id === item.id)
+                if (!task) return null
+                return (
+                  <DraggableTaskRow
+                    key={task._id}
+                    taskId={task._id}
+                    title={task.title}
+                    status={task.status}
+                    priority={task.priority}
+                    dueDate={task.dueDate}
+                  />
+                )
+              } else {
+                const note = sortedNotes.find((n) => n._id === item.id)
+                if (!note) return null
+                return (
+                  <DraggableNoteRow
+                    key={note._id}
+                    noteId={note._id}
+                    title={note.title}
+                    isSelected={selectedNoteId === note._id}
+                    onSelect={setSelectedNoteId}
+                  />
+                )
+              }
+            })}
           </SortableContext>
-
-          {/* Notes */}
-          {sortedNotes.map((note) => (
-            <NoteRow
-              key={note._id}
-              noteId={note._id}
-              title={note.title}
-              isSelected={selectedNoteId === note._id}
-              onSelect={setSelectedNoteId}
-            />
-          ))}
 
           <QuickAddTask
             projectId={projectId}
