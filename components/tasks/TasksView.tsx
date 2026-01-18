@@ -175,27 +175,29 @@ export function TasksView() {
       }
 
       if (activeType === 'project') {
-        // For projects, check for folder drops first
+        // For projects, check for special drop zones first
         if (pointerCollisions.length > 0) {
           const noFolderCollision = pointerCollisions.find((c) => c.id === 'no-folder-zone')
           if (noFolderCollision) {
             return [noFolderCollision]
           }
 
-          const folderCollision = pointerCollisions.find((c) =>
-            folderIds.has(c.id as Id<'folders'>)
+          // Look for folder drop zones (folder-drop::folderId format)
+          const folderDropCollision = pointerCollisions.find((c) =>
+            (c.id as string).startsWith('folder-drop::')
           )
-          if (folderCollision) {
-            return [folderCollision]
+          if (folderDropCollision) {
+            return [folderDropCollision]
           }
         }
+        // Fall back to rect intersection for reordering (sortable items)
         return rectIntersection(args)
       }
 
       // Default for folders
       return rectIntersection(args)
     },
-    [activeType, folderIds]
+    [activeType]
   )
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -345,11 +347,12 @@ export function TasksView() {
         return
       }
 
-      // Dropping onto a folder
-      if (folderIds.has(overIdStr as Id<'folders'>)) {
+      // Dropping onto a folder drop zone (folder-drop::folderId format)
+      if (overIdStr.startsWith('folder-drop::')) {
+        const folderId = overIdStr.replace('folder-drop::', '') as Id<'folders'>
         await moveProjectToFolder({
           id: projectId,
-          folderId: overIdStr as Id<'folders'>,
+          folderId,
         })
         return
       }

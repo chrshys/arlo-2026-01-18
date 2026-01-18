@@ -41,7 +41,23 @@ export const create = mutation({
       .query('projects')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect()
-    const maxSortOrder = projects.reduce((max, p) => Math.max(max, p.sortOrder), -1)
+
+    let sortOrder: number
+    if (args.folderId) {
+      // Project goes into a folder - order within that folder's projects
+      const folderProjects = projects.filter((p) => p.folderId === args.folderId)
+      sortOrder = folderProjects.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1
+    } else {
+      // Standalone project - use unified sidebar ordering (folders + standalone projects)
+      const folders = await ctx.db
+        .query('folders')
+        .withIndex('by_user', (q) => q.eq('userId', user._id))
+        .collect()
+      const standaloneProjects = projects.filter((p) => !p.folderId)
+      const maxFolderOrder = folders.reduce((max, f) => Math.max(max, f.sortOrder), -1)
+      const maxProjectOrder = standaloneProjects.reduce((max, p) => Math.max(max, p.sortOrder), -1)
+      sortOrder = Math.max(maxFolderOrder, maxProjectOrder) + 1
+    }
 
     return await ctx.db.insert('projects', {
       userId: user._id,
@@ -49,7 +65,7 @@ export const create = mutation({
       folderId: args.folderId,
       color: args.color,
       icon: args.icon,
-      sortOrder: maxSortOrder + 1,
+      sortOrder,
       createdAt: Date.now(),
     })
   },

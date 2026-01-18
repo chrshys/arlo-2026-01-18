@@ -121,9 +121,10 @@ export function DroppableFolderItem({
       animateLayoutChanges: () => false,
     })
 
-  // Make this folder a drop target for projects
+  // Make this folder a drop target for projects (separate ID from sortable)
+  const dropId = `folder-drop::${folderId}`
   const { isOver, setNodeRef: setDropRef } = useDroppable({
-    id: folderId,
+    id: dropId,
   })
 
   // Keep item hidden and skip transforms while being dragged OR while overlay is still showing

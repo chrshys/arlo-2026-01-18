@@ -19,6 +19,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as notes from "../notes.js";
 import type * as projects from "../projects.js";
 import type * as sections from "../sections.js";
+import type * as sidebar from "../sidebar.js";
 import type * as subtasks from "../subtasks.js";
 import type * as tasks from "../tasks.js";
 import type * as threads from "../threads.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   notes: typeof notes;
   projects: typeof projects;
   sections: typeof sections;
+  sidebar: typeof sidebar;
   subtasks: typeof subtasks;
   tasks: typeof tasks;
   threads: typeof threads;

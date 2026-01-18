@@ -30,11 +30,21 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx)
+
+    // Get max sortOrder from both folders and standalone projects (unified sidebar ordering)
     const folders = await ctx.db
       .query('folders')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect()
-    const maxSortOrder = folders.reduce((max, f) => Math.max(max, f.sortOrder), -1)
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+    const standaloneProjects = projects.filter((p) => !p.folderId)
+
+    const maxFolderOrder = folders.reduce((max, f) => Math.max(max, f.sortOrder), -1)
+    const maxProjectOrder = standaloneProjects.reduce((max, p) => Math.max(max, p.sortOrder), -1)
+    const maxSortOrder = Math.max(maxFolderOrder, maxProjectOrder)
 
     return await ctx.db.insert('folders', {
       userId: user._id,
