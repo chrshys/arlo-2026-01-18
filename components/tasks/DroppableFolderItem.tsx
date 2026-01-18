@@ -145,7 +145,7 @@ export function DroppableFolderItem({
           'hover:bg-accent/50',
           isDragging && 'opacity-50 bg-accent',
           isDropTarget && isOver && 'bg-primary/15',
-          isSelected && 'bg-accent border-l-2 border-primary'
+          isSelected && 'bg-accent'
         )}
       >
         <div

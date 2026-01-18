@@ -10,6 +10,7 @@ import { DraggableProjectItem } from './DraggableProjectItem'
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useUnifiedDrag } from './TasksView'
+import { useTaskNavigation } from '@/hooks/use-task-navigation'
 
 // Drop zone for removing projects from folders
 function NoFolderDropZone({ isActive }: { isActive: boolean }) {
@@ -42,6 +43,7 @@ export function SortableFolderTree() {
 
   // Get drag state from unified context
   const { activeId, activeType } = useUnifiedDrag()
+  const { selection, setSelection } = useTaskNavigation()
 
   // Memoize sorted data
   const sortedFolders = useMemo(
@@ -163,6 +165,8 @@ export function SortableFolderTree() {
             color={folder.color}
             projects={projectsByFolder.get(folder._id) ?? []}
             isDropTarget={activeType === 'project'}
+            isSelected={selection.type === 'folder' && selection.folderId === folder._id}
+            onSelect={(folderId) => setSelection({ type: 'folder', folderId })}
             onReorderProjects={async (orderedIds) => {
               await reorderProjects({ orderedIds })
             }}
