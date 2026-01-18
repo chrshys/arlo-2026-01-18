@@ -1,5 +1,6 @@
 import { mutation, query, internalMutation, internalQuery } from './_generated/server'
 import { v } from 'convex/values'
+import { requireCurrentUser } from './lib/auth'
 
 const priorityValidator = v.union(
   v.literal('none'),
@@ -11,7 +12,12 @@ const priorityValidator = v.union(
 // Public query for UI to list all tasks
 export const list = query({
   handler: async (ctx) => {
-    return await ctx.db.query('tasks').order('desc').collect()
+    const user = await requireCurrentUser(ctx)
+    return await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .order('desc')
+      .collect()
   },
 })
 
@@ -19,28 +25,31 @@ export const list = query({
 export const listByProject = query({
   args: { projectId: v.optional(v.id('projects')) },
   handler: async (ctx, { projectId }) => {
-    if (projectId === undefined) {
-      // Inbox: tasks without a project
-      return await ctx.db
-        .query('tasks')
-        .filter((q) => q.eq(q.field('projectId'), undefined))
-        .collect()
-    }
-    return await ctx.db
+    const user = await requireCurrentUser(ctx)
+    const allTasks = await ctx.db
       .query('tasks')
-      .withIndex('by_project', (q) => q.eq('projectId', projectId))
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect()
+
+    if (projectId === undefined) {
+      return allTasks.filter((t) => t.projectId === undefined)
+    }
+    return allTasks.filter((t) => t.projectId === projectId)
   },
 })
 
 // List tasks due today
 export const listToday = query({
   handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx)
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
     const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1
 
-    const tasks = await ctx.db.query('tasks').withIndex('by_due_date').collect()
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
 
     return tasks.filter(
       (t) =>
@@ -55,11 +64,15 @@ export const listToday = query({
 // List tasks due in next 7 days
 export const listNext7Days = query({
   handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx)
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
     const endOfWeek = startOfDay + 7 * 24 * 60 * 60 * 1000 - 1
 
-    const tasks = await ctx.db.query('tasks').withIndex('by_due_date').collect()
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
 
     return tasks.filter(
       (t) =>
@@ -82,16 +95,17 @@ export const createFromUI = mutation({
     dueDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+
     // Get max sort order for the project/section
+    const allTasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
     const existingTasks = args.projectId
-      ? await ctx.db
-          .query('tasks')
-          .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-          .collect()
-      : await ctx.db
-          .query('tasks')
-          .filter((q) => q.eq(q.field('projectId'), undefined))
-          .collect()
+      ? allTasks.filter((t) => t.projectId === args.projectId)
+      : allTasks.filter((t) => t.projectId === undefined)
 
     const relevantTasks = args.sectionId
       ? existingTasks.filter((t) => t.sectionId === args.sectionId)
@@ -100,6 +114,7 @@ export const createFromUI = mutation({
     const maxSortOrder = relevantTasks.reduce((max, t) => Math.max(max, t.sortOrder ?? 0), -1)
 
     return await ctx.db.insert('tasks', {
+      userId: user._id,
       title: args.title,
       description: args.description,
       projectId: args.projectId,
@@ -128,6 +143,10 @@ export const update = mutation({
     reminders: v.optional(v.array(v.number())),
   },
   handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(args.id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     const { id, ...updates } = args
     const filtered = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined))
     if (Object.keys(filtered).length > 0) {
@@ -148,6 +167,10 @@ export const clearField = mutation({
     ),
   },
   handler: async (ctx, { id, field }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     await ctx.db.patch(id, { [field]: undefined })
   },
 })
@@ -156,6 +179,10 @@ export const clearField = mutation({
 export const completeFromUI = mutation({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(taskId)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     await ctx.db.patch(taskId, {
       status: 'completed',
       completedAt: Date.now(),
@@ -167,6 +194,10 @@ export const completeFromUI = mutation({
 export const reopen = mutation({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(taskId)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     await ctx.db.patch(taskId, {
       status: 'pending',
       completedAt: undefined,
@@ -178,6 +209,10 @@ export const reopen = mutation({
 export const remove = mutation({
   args: { id: v.id('tasks') },
   handler: async (ctx, { id }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     // Delete all subtasks
     const subtasks = await ctx.db
       .query('subtasks')
@@ -198,8 +233,12 @@ export const reorder = mutation({
     orderedIds: v.array(v.id('tasks')),
   },
   handler: async (ctx, { orderedIds }) => {
+    const user = await requireCurrentUser(ctx)
     for (let i = 0; i < orderedIds.length; i++) {
-      await ctx.db.patch(orderedIds[i], { sortOrder: i })
+      const task = await ctx.db.get(orderedIds[i])
+      if (task && task.userId === user._id) {
+        await ctx.db.patch(orderedIds[i], { sortOrder: i })
+      }
     }
   },
 })
@@ -212,12 +251,15 @@ export const move = mutation({
     sectionId: v.optional(v.id('sections')),
   },
   handler: async (ctx, { id, projectId, sectionId }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     await ctx.db.patch(id, { projectId, sectionId })
   },
 })
 
 // Move task to a different project (drag and drop)
-// Clears section and places task at the top of the target project's unsectioned area
 export const moveToProject = mutation({
   args: {
     id: v.id('tasks'),
@@ -225,23 +267,24 @@ export const moveToProject = mutation({
     sectionId: v.optional(v.id('sections')),
   },
   handler: async (ctx, { id, projectId, sectionId }) => {
-    // Get existing tasks in the target project
-    const targetTasks = projectId
-      ? await ctx.db
-          .query('tasks')
-          .withIndex('by_project', (q) => q.eq('projectId', projectId))
-          .collect()
-      : await ctx.db
-          .query('tasks')
-          .filter((q) => q.eq(q.field('projectId'), undefined))
-          .collect()
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
 
-    // Filter to tasks in the target section (or unsectioned)
+    // Get existing tasks in the target project
+    const allTasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    const targetTasks = projectId
+      ? allTasks.filter((t) => t.projectId === projectId)
+      : allTasks.filter((t) => t.projectId === undefined)
+
     const sectionTasks = targetTasks.filter((t) =>
       sectionId ? t.sectionId === sectionId : t.sectionId === undefined
     )
 
-    // Find minimum sortOrder to place new task at top
     const minSortOrder = sectionTasks.reduce((min, t) => Math.min(min, t.sortOrder ?? 0), 0)
 
     await ctx.db.patch(id, {
@@ -252,12 +295,16 @@ export const moveToProject = mutation({
   },
 })
 
-// Set due date to today (for dropping on Today smart list)
+// Set due date to today
 export const setDueToday = mutation({
   args: {
     id: v.id('tasks'),
   },
   handler: async (ctx, { id }) => {
+    const user = await requireCurrentUser(ctx)
+    const task = await ctx.db.get(id)
+    if (!task || task.userId !== user._id) throw new Error('Not found')
+
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
     await ctx.db.patch(id, { dueDate: startOfDay })
@@ -271,8 +318,9 @@ export const addReminder = mutation({
     reminderTime: v.number(),
   },
   handler: async (ctx, { id, reminderTime }) => {
+    const user = await requireCurrentUser(ctx)
     const task = await ctx.db.get(id)
-    if (!task) return
+    if (!task || task.userId !== user._id) throw new Error('Not found')
 
     const reminders = [...(task.reminders ?? []), reminderTime].sort((a, b) => a - b)
     await ctx.db.patch(id, { reminders })
@@ -286,8 +334,9 @@ export const removeReminder = mutation({
     reminderTime: v.number(),
   },
   handler: async (ctx, { id, reminderTime }) => {
+    const user = await requireCurrentUser(ctx)
     const task = await ctx.db.get(id)
-    if (!task) return
+    if (!task || task.userId !== user._id) throw new Error('Not found')
 
     const reminders = (task.reminders ?? []).filter((r) => r !== reminderTime)
     await ctx.db.patch(id, { reminders })
@@ -297,6 +346,7 @@ export const removeReminder = mutation({
 // Internal mutation for Arlo to create tasks
 export const create = internalMutation({
   args: {
+    userId: v.id('users'),
     title: v.string(),
     description: v.optional(v.string()),
     projectId: v.optional(v.id('projects')),
@@ -306,20 +356,19 @@ export const create = internalMutation({
     createdBy: v.union(v.literal('user'), v.literal('arlo')),
   },
   handler: async (ctx, args) => {
-    // Get max sort order
+    const allTasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', args.userId))
+      .collect()
+
     const existingTasks = args.projectId
-      ? await ctx.db
-          .query('tasks')
-          .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-          .collect()
-      : await ctx.db
-          .query('tasks')
-          .filter((q) => q.eq(q.field('projectId'), undefined))
-          .collect()
+      ? allTasks.filter((t) => t.projectId === args.projectId)
+      : allTasks.filter((t) => t.projectId === undefined)
 
     const maxSortOrder = existingTasks.reduce((max, t) => Math.max(max, t.sortOrder ?? 0), -1)
 
     return await ctx.db.insert('tasks', {
+      userId: args.userId,
       title: args.title,
       description: args.description,
       projectId: args.projectId,
@@ -337,11 +386,15 @@ export const create = internalMutation({
 
 // Internal query for Arlo to list pending tasks
 export const listPending = internalQuery({
-  handler: async (ctx) => {
-    return await ctx.db
+  args: {
+    userId: v.id('users'),
+  },
+  handler: async (ctx, { userId }) => {
+    const tasks = await ctx.db
       .query('tasks')
-      .withIndex('by_status', (q) => q.eq('status', 'pending'))
+      .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
+    return tasks.filter((t) => t.status === 'pending')
   },
 })
 
