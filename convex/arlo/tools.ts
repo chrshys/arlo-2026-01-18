@@ -3,6 +3,14 @@ import { z } from 'zod'
 import { internal } from '../_generated/api'
 import { Id } from '../_generated/dataModel'
 
+// Helper to get userId from context (set by agent)
+function getUserId(ctx: { userId?: Id<'users'> }): Id<'users'> {
+  if (!ctx.userId) {
+    throw new Error('User context not available')
+  }
+  return ctx.userId
+}
+
 export const createTask = createTool({
   description: 'Create a new task. Can optionally specify a project, due date, and priority.',
   args: z.object({
@@ -16,6 +24,8 @@ export const createTask = createTool({
       .describe('Due date in ISO format (YYYY-MM-DD) or relative like "tomorrow"'),
   }),
   handler: async (ctx, args): Promise<{ taskId: string; message: string }> => {
+    const userId = getUserId(ctx)
+
     // Parse due date if provided
     let dueDateTimestamp: number | undefined
     if (args.dueDate) {
@@ -26,6 +36,7 @@ export const createTask = createTool({
     }
 
     const taskId = await ctx.runMutation(internal.tasks.create, {
+      userId,
       title: args.title,
       description: args.description,
       projectId: args.projectId as Id<'projects'> | undefined,
@@ -35,6 +46,7 @@ export const createTask = createTool({
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'create_task',
       actor: 'arlo',
       outcome: 'success',
@@ -68,7 +80,9 @@ export const listTasks = createTool({
       dueDate?: string
     }>
   }> => {
-    const tasks = await ctx.runQuery(internal.tasks.listPending)
+    const userId = getUserId(ctx)
+
+    const tasks = await ctx.runQuery(internal.tasks.listPending, { userId })
 
     // Filter by project if specified
     let filteredTasks = tasks
@@ -82,6 +96,7 @@ export const listTasks = createTool({
     }
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'list_tasks',
       actor: 'arlo',
       outcome: 'success',
@@ -106,10 +121,13 @@ export const completeTask = createTool({
     taskId: z.string().describe('The ID of the task to complete'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     await ctx.runMutation(internal.tasks.complete, {
       taskId: args.taskId as Id<'tasks'>,
     })
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'complete_task',
       actor: 'arlo',
       outcome: 'success',
@@ -128,6 +146,8 @@ export const moveTask = createTool({
     sectionId: z.string().optional().describe('Target section ID within the project'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     await ctx.runMutation(internal.arlo.mutations.moveTask, {
       taskId: args.taskId as Id<'tasks'>,
       projectId: args.projectId as Id<'projects'> | undefined,
@@ -135,6 +155,7 @@ export const moveTask = createTool({
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'move_task',
       actor: 'arlo',
       outcome: 'success',
@@ -157,6 +178,8 @@ export const setReminder = createTool({
       .describe('Reminder time in ISO format or relative like "tomorrow 9am"'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     const reminderTimestamp = parseReminderTime(args.reminderTime)
     if (!reminderTimestamp) {
       return { message: `Could not parse reminder time: ${args.reminderTime}` }
@@ -168,6 +191,7 @@ export const setReminder = createTool({
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'set_reminder',
       actor: 'arlo',
       outcome: 'success',
@@ -190,9 +214,12 @@ export const listProjects = createTool({
     projects: Array<{ id: string; name: string; folderId?: string }>
     folders: Array<{ id: string; name: string }>
   }> => {
-    const result = await ctx.runQuery(internal.arlo.mutations.listProjectsAndFolders)
+    const userId = getUserId(ctx)
+
+    const result = await ctx.runQuery(internal.arlo.mutations.listProjectsAndFolders, { userId })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'list_projects',
       actor: 'arlo',
       outcome: 'success',
@@ -210,12 +237,15 @@ export const setTaskPriority = createTool({
     priority: z.enum(['none', 'low', 'medium', 'high']).describe('The priority level'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     await ctx.runMutation(internal.arlo.mutations.updateTaskPriority, {
       taskId: args.taskId as Id<'tasks'>,
       priority: args.priority,
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'set_priority',
       actor: 'arlo',
       outcome: 'success',
@@ -234,6 +264,8 @@ export const setDueDate = createTool({
     dueDate: z.string().describe('Due date in ISO format (YYYY-MM-DD) or relative like "tomorrow"'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     const dueDateTimestamp = parseDueDate(args.dueDate)
     if (!dueDateTimestamp) {
       return { message: `Could not parse due date: ${args.dueDate}` }
@@ -245,6 +277,7 @@ export const setDueDate = createTool({
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'set_due_date',
       actor: 'arlo',
       outcome: 'success',
@@ -335,7 +368,10 @@ export const createNote = createTool({
     projectId: z.string().optional().describe('Optional project ID to add the note to'),
   }),
   handler: async (ctx, args): Promise<{ noteId: string; message: string }> => {
+    const userId = getUserId(ctx)
+
     const noteId = await ctx.runMutation(internal.notes.create, {
+      userId,
       title: args.title,
       content: args.content,
       projectId: args.projectId as Id<'projects'> | undefined,
@@ -343,6 +379,7 @@ export const createNote = createTool({
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'create_note',
       actor: 'arlo',
       outcome: 'success',
@@ -372,7 +409,9 @@ export const listNotes = createTool({
       updatedAt: string
     }>
   }> => {
-    const notes = await ctx.runQuery(internal.notes.listAll)
+    const userId = getUserId(ctx)
+
+    const notes = await ctx.runQuery(internal.notes.listAll, { userId })
 
     // Filter by project if specified
     let filteredNotes = notes
@@ -381,6 +420,7 @@ export const listNotes = createTool({
     }
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'list_notes',
       actor: 'arlo',
       outcome: 'success',
@@ -404,12 +444,15 @@ export const updateNote = createTool({
     content: z.string().describe('The new content in markdown format'),
   }),
   handler: async (ctx, args): Promise<{ message: string }> => {
+    const userId = getUserId(ctx)
+
     await ctx.runMutation(internal.notes.updateContentInternal, {
       id: args.noteId as Id<'notes'>,
       content: args.content,
     })
 
     await ctx.runMutation(internal.activity.log, {
+      userId,
       action: 'update_note',
       actor: 'arlo',
       outcome: 'success',
