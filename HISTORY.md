@@ -6,7 +6,7 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 ## Current State
 
-**Phase:** Foundation + Task Depth complete, ready for Proactive phase
+**Phase:** Foundation + Task Depth + Auth complete, ready for Proactive phase
 
 **Implemented:**
 
@@ -22,6 +22,7 @@ This file captures summaries of development sessions, key decisions made, and ar
 - **Multi-panel layout** — resizable panels, keyboard shortcuts, mobile support
 - **Conversation list** — thread switching, explicit new conversation, auto-generated titles
 - **Task depth** — full task management system (see below)
+- **Clerk authentication** — multi-user support with full data isolation (see below)
 
 **Task Depth Features:**
 
@@ -34,6 +35,15 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Drag & drop (reorder tasks, move between projects, drag to Today sets due date)
 - Task detail panel with description, due date, reminders, subtasks
 - Creator tracking (user vs Arlo)
+
+**Authentication Features:**
+
+- Clerk integration with email/password and Google OAuth
+- User sync via webhooks (create, update, delete)
+- JWT-based authentication between Clerk and Convex
+- Route protection via middleware
+- Multi-user data isolation (userId on all tables)
+- Themed sign-in/sign-up pages with dark mode support
 
 **Blockers:** None
 
@@ -452,6 +462,7 @@ pnpm test           # Vitest
 | 2026-01-17 | dnd-kit for drag/drop                 | Lightweight, composable, good React integration                                            |
 | 2026-01-17 | Novel for notes editor                | Notion-style blocks, Vercel ecosystem, TipTap/ProseMirror under hood                       |
 | 2026-01-17 | Web-first cross-platform              | Novel needs browser; Electron for desktop, WebView for mobile when needed                  |
+| 2026-01-18 | Clerk for authentication              | Managed auth, OAuth support, excellent Next.js/Convex integration, webhook-based user sync |
 
 ---
 
@@ -1235,3 +1246,111 @@ When creating a note, the NoteRow becomes immediately editable:
 | Drag task below note            | Mixed ordering preserved            |
 
 **Result:** Notes now have grip handles and can be dragged to reorder among tasks or moved between sections/projects.
+
+---
+
+### 2026-01-18 — Clerk Authentication Implementation
+
+**Focus:** Add Clerk authentication with multi-user data isolation.
+
+**Branch:** `feature/clerk-auth`
+
+**Activities:**
+
+1. Installed Clerk and svix dependencies
+2. Created Convex auth config for JWT validation
+3. Added users table and userId field to all data tables
+4. Created auth helpers (`requireCurrentUser`, `getCurrentUser`, `getCurrentUserFromAction`)
+5. Created webhook handler for Clerk user sync events
+6. Updated ConvexProvider with ClerkProvider integration
+7. Created route protection middleware
+8. Built themed sign-in/sign-up pages with dark mode support
+9. Updated all 8 Convex modules with userId scoping
+10. Updated Arlo tools and agent to pass userId context
+
+**Files Created:**
+
+| File                                  | Purpose                          |
+| ------------------------------------- | -------------------------------- |
+| `convex/auth.config.ts`               | Convex auth config for Clerk JWT |
+| `convex/lib/auth.ts`                  | Auth helper functions            |
+| `convex/users.ts`                     | User CRUD via webhooks           |
+| `convex/http.ts`                      | Webhook handler for Clerk events |
+| `middleware.ts`                       | Route protection middleware      |
+| `app/sign-in/[[...sign-in]]/page.tsx` | Sign-in page with theming        |
+| `app/sign-up/[[...sign-up]]/page.tsx` | Sign-up page with theming        |
+
+**Files Modified:**
+
+| File                            | Changes                                                  |
+| ------------------------------- | -------------------------------------------------------- |
+| `convex/schema.ts`              | Added users table, userId to all tables, by_user indexes |
+| `components/ConvexProvider.tsx` | Wrapped with ClerkProvider and ConvexProviderWithClerk   |
+| `convex/folders.ts`             | Added userId scoping to all queries/mutations            |
+| `convex/projects.ts`            | Added userId scoping to all queries/mutations            |
+| `convex/sections.ts`            | Added userId scoping to all queries/mutations            |
+| `convex/tasks.ts`               | Added userId scoping, internal mutations require userId  |
+| `convex/subtasks.ts`            | Added userId scoping to all queries/mutations            |
+| `convex/notes.ts`               | Added userId scoping, internal mutations require userId  |
+| `convex/activity.ts`            | Added userId parameter to log mutation                   |
+| `convex/arlo/mutations.ts`      | Added userId to listProjectsAndFolders                   |
+| `convex/arlo/tools.ts`          | Added userId extraction from context, pass to all calls  |
+| `convex/chat.ts`                | Get authenticated user, pass userId to agent             |
+
+**New Packages:**
+
+| Package         | Purpose                          |
+| --------------- | -------------------------------- |
+| `@clerk/nextjs` | Clerk authentication for Next.js |
+| `svix`          | Webhook signature verification   |
+| `@clerk/themes` | Theming for Clerk components     |
+
+**Technical Notes:**
+
+- Clerk JWT tokens validated by Convex via `auth.config.ts`
+- Webhooks at `/webhooks/clerk` handle user.created, user.updated, user.deleted
+- All queries/mutations now call `requireCurrentUser()` to get authenticated user
+- Internal mutations (for Arlo) accept `userId` parameter instead of auth context
+- Tools access `ctx.userId` which is set when agent generates response
+- Sign-in/sign-up pages use `@clerk/themes` dark mode with shadcn/ui colors
+
+**Data Isolation Pattern:**
+
+```typescript
+// Public queries/mutations (UI)
+export const list = query({
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx)
+    return await ctx.db
+      .query('tasks')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+  },
+})
+
+// Internal mutations (Arlo)
+export const create = internalMutation({
+  args: { userId: v.id('users'), title: v.string(), ... },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert('tasks', {
+      userId: args.userId,
+      ...
+    })
+  },
+})
+```
+
+**Environment Variables Added:**
+
+| Variable                            | Location     |
+| ----------------------------------- | ------------ |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `.env.local` |
+| `CLERK_SECRET_KEY`                  | `.env.local` |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`     | `.env.local` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL`     | `.env.local` |
+| `CLERK_JWT_ISSUER_DOMAIN`           | Convex env   |
+| `CLERK_WEBHOOK_SECRET`              | Convex env   |
+
+**Commits:** 25 commits covering full implementation
+
+**Result:** Full multi-user authentication. Each user sees only their own data. Sign-in/sign-up pages match app theme. Arlo operates on the authenticated user's data.
