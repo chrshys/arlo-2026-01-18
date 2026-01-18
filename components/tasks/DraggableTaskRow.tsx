@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Circle, CheckCircle2, Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
+import { useUnifiedDrag } from './TasksView'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -63,16 +64,25 @@ export function DraggableTaskRow({
   dueDate,
 }: DraggableTaskRowProps) {
   const { selectedTaskId, setSelectedTaskId } = useTaskNavigation()
+  const { activeId } = useUnifiedDrag()
   const completeTask = useMutation(api.tasks.completeFromUI)
   const reopenTask = useMutation(api.tasks.reopen)
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: createDragId('task', taskId),
-  })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
+    useSortable({
+      id: createDragId('task', taskId),
+      // Disable layout animations - we use database mutations which cause full re-renders
+      animateLayoutChanges: () => false,
+    })
+
+  // Keep item hidden and skip transforms while being dragged OR while overlay is still showing
+  // This prevents the flash where both item and overlay are visible during the 50ms delay
+  const isActive = activeId === taskId
+  const shouldHide = isDragging || isActive
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: shouldHide ? undefined : CSS.Transform.toString(transform),
+    transition: shouldHide || isSorting ? undefined : transition,
   }
 
   const isSelected = selectedTaskId === taskId
@@ -101,8 +111,8 @@ export function DraggableTaskRow({
         'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left cursor-pointer',
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
-        isCompleted && 'opacity-60',
-        isDragging && 'opacity-0'
+        isCompleted && !shouldHide && 'opacity-60',
+        shouldHide && 'opacity-0'
       )}
     >
       <div

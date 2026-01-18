@@ -19,6 +19,10 @@ interface TaskNavigationContextValue {
   setSelectedNoteId: (id: Id<'notes'> | null) => void
   editingNoteId: Id<'notes'> | null
   setEditingNoteId: (id: Id<'notes'> | null) => void
+  editingFolderId: Id<'folders'> | null
+  setEditingFolderId: (id: Id<'folders'> | null) => void
+  editingProjectId: Id<'projects'> | null
+  setEditingProjectId: (id: Id<'projects'> | null) => void
   shouldFocusNoteEditor: boolean
   setShouldFocusNoteEditor: (value: boolean) => void
   expandedFolders: Set<Id<'folders'>>
@@ -40,6 +44,8 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
   const [selectedTaskId, setSelectedTaskIdState] = useState<Id<'tasks'> | null>(null)
   const [selectedNoteId, setSelectedNoteIdState] = useState<Id<'notes'> | null>(null)
   const [editingNoteId, setEditingNoteId] = useState<Id<'notes'> | null>(null)
+  const [editingFolderId, setEditingFolderId] = useState<Id<'folders'> | null>(null)
+  const [editingProjectId, setEditingProjectId] = useState<Id<'projects'> | null>(null)
   const [shouldFocusNoteEditor, setShouldFocusNoteEditor] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<Id<'folders'>>>(new Set())
 
@@ -86,6 +92,10 @@ export function TaskNavigationProvider({ children }: TaskNavigationProviderProps
         setSelectedNoteId,
         editingNoteId,
         setEditingNoteId,
+        editingFolderId,
+        setEditingFolderId,
+        editingProjectId,
+        setEditingProjectId,
         shouldFocusNoteEditor,
         setShouldFocusNoteEditor,
         expandedFolders,

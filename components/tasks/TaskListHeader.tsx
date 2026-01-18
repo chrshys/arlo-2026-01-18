@@ -46,6 +46,7 @@ export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps)
   let title = 'Tasks'
   let Icon: React.ComponentType<{ className?: string }> = Hash
   const isProject = selection.type === 'project'
+  const isFolder = selection.type === 'folder'
 
   if (selection.type === 'smart-list') {
     const config = SMART_LIST_CONFIG[selection.list]
@@ -102,39 +103,41 @@ export function TaskListHeader({ onAddSection, onAddTask }: TaskListHeaderProps)
       </PanelHeader.Title>
 
       <PanelHeader.Actions>
-        {/* Add button with dropdown */}
-        <div className="relative" ref={addMenuRef}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setShowAddMenu(!showAddMenu)}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        {/* Add button with dropdown - hidden for folders since items belong to projects */}
+        {!isFolder && (
+          <div className="relative" ref={addMenuRef}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setShowAddMenu(!showAddMenu)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
 
-          {showAddMenu && (
-            <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]">
-              <button
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                onClick={() => {
-                  setShowAddMenu(false)
-                  onAddTask?.()
-                }}
-              >
-                <CheckSquare className="h-3 w-3" />
-                New task
-              </button>
-              <button
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
-                onClick={handleAddNote}
-              >
-                <FileText className="h-3 w-3" />
-                New note
-              </button>
-            </div>
-          )}
-        </div>
+            {showAddMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]">
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => {
+                    setShowAddMenu(false)
+                    onAddTask?.()
+                  }}
+                >
+                  <CheckSquare className="h-3 w-3" />
+                  New task
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                  onClick={handleAddNote}
+                >
+                  <FileText className="h-3 w-3" />
+                  New note
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* More menu for projects */}
         {isProject && (

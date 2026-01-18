@@ -7,7 +7,7 @@ import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { DroppableFolderItem } from './DroppableFolderItem'
 import { DraggableProjectItem } from './DraggableProjectItem'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useUnifiedDrag } from './TasksView'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
@@ -40,21 +40,39 @@ export function SortableFolderTree() {
   const projects = useQuery(api.projects.list)
   const reorderFolders = useMutation(api.folders.reorder)
   const reorderProjects = useMutation(api.projects.reorder)
+  const [optimisticFolderOrder, setOptimisticFolderOrder] = useState<Id<'folders'>[] | null>(null)
+  const [optimisticProjectOrder, setOptimisticProjectOrder] = useState<Id<'projects'>[] | null>(
+    null
+  )
 
   // Get drag state from unified context
   const { activeId, activeType } = useUnifiedDrag()
   const { selection, setSelection } = useTaskNavigation()
 
-  // Memoize sorted data
-  const sortedFolders = useMemo(
+  // Memoize sorted data (base order from server)
+  const baseFolders = useMemo(
     () => folders?.slice().sort((a, b) => a.sortOrder - b.sortOrder) ?? [],
     [folders]
   )
 
-  const standaloneProjects = useMemo(
+  const baseStandaloneProjects = useMemo(
     () => projects?.filter((p) => !p.folderId).sort((a, b) => a.sortOrder - b.sortOrder) ?? [],
     [projects]
   )
+
+  const sortedFolders = useMemo(() => {
+    if (!optimisticFolderOrder) return baseFolders
+    const byId = new Map(baseFolders.map((f) => [f._id, f]))
+    return optimisticFolderOrder.map((id) => byId.get(id)).filter(Boolean) as typeof baseFolders
+  }, [baseFolders, optimisticFolderOrder])
+
+  const standaloneProjects = useMemo(() => {
+    if (!optimisticProjectOrder) return baseStandaloneProjects
+    const byId = new Map(baseStandaloneProjects.map((p) => [p._id, p]))
+    return optimisticProjectOrder
+      .map((id) => byId.get(id))
+      .filter(Boolean) as typeof baseStandaloneProjects
+  }, [baseStandaloneProjects, optimisticProjectOrder])
 
   // Projects grouped by folder
   const projectsByFolder = useMemo(() => {
@@ -79,6 +97,29 @@ export function SortableFolderTree() {
 
   const folderIds = useMemo(() => new Set(sortedFolders.map((f) => f._id)), [sortedFolders])
   const allProjectIds = useMemo(() => new Set(projects?.map((p) => p._id) ?? []), [projects])
+
+  const baseFolderOrder = useMemo(() => baseFolders.map((f) => f._id), [baseFolders])
+  const baseProjectOrder = useMemo(
+    () => baseStandaloneProjects.map((p) => p._id),
+    [baseStandaloneProjects]
+  )
+
+  const ordersMatch = (a: string[] | null, b: string[]) => {
+    if (!a || a.length !== b.length) return false
+    return a.every((id, index) => id === b[index])
+  }
+
+  useEffect(() => {
+    if (optimisticFolderOrder && ordersMatch(optimisticFolderOrder, baseFolderOrder)) {
+      setOptimisticFolderOrder(null)
+    }
+  }, [optimisticFolderOrder, baseFolderOrder])
+
+  useEffect(() => {
+    if (optimisticProjectOrder && ordersMatch(optimisticProjectOrder, baseProjectOrder)) {
+      setOptimisticProjectOrder(null)
+    }
+  }, [optimisticProjectOrder, baseProjectOrder])
 
   // Sortable items depend on what's being dragged:
   // - Dragging folder: only folders are sortable (so folders reorder among themselves)
@@ -117,6 +158,7 @@ export function SortableFolderTree() {
             const reordered = [...standaloneProjects]
             const [removed] = reordered.splice(oldIndex, 1)
             reordered.splice(newIndex, 0, removed)
+            setOptimisticProjectOrder(reordered.map((p) => p._id))
             await reorderProjects({ orderedIds: reordered.map((p) => p._id) })
           }
         }
@@ -135,6 +177,7 @@ export function SortableFolderTree() {
           const reordered = [...sortedFolders]
           const [removed] = reordered.splice(oldIndex, 1)
           reordered.splice(newIndex, 0, removed)
+          setOptimisticFolderOrder(reordered.map((f) => f._id))
           await reorderFolders({ orderedIds: reordered.map((f) => f._id) })
         }
       }

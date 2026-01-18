@@ -21,12 +21,21 @@ interface DraggableProjectItemProps {
 }
 
 export function DraggableProjectItem({ projectId, name, color }: DraggableProjectItemProps) {
-  const { selection, setSelection, setSelectedTaskId } = useTaskNavigation()
-  const { activeType } = useUnifiedDrag()
+  const { selection, setSelection, setSelectedTaskId, editingProjectId, setEditingProjectId } =
+    useTaskNavigation()
+  const { activeId, activeType } = useUnifiedDrag()
   const tasks = useQuery(api.tasks.listByProject, { projectId })
 
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(name)
+
+  // Start editing if this project was just created
+  useEffect(() => {
+    if (editingProjectId === projectId) {
+      setIsEditing(true)
+      setEditingProjectId(null)
+    }
+  }, [editingProjectId, projectId, setEditingProjectId])
   const [showMenu, setShowMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -59,11 +68,11 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
   }, [showMenu])
 
   const handleSave = async () => {
-    if (editedName.trim() && editedName !== name) {
-      await updateProject({ id: projectId, name: editedName.trim() })
-    } else {
-      setEditedName(name)
+    const finalName = editedName.trim() || 'New Project'
+    if (finalName !== name) {
+      await updateProject({ id: projectId, name: finalName })
     }
+    setEditedName(finalName)
     setIsEditing(false)
   }
 
@@ -94,8 +103,11 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
     transform,
     transition,
     isDragging,
+    isSorting,
   } = useSortable({
     id: projectId,
+    // Disable layout animations - we use database mutations which cause full re-renders
+    animateLayoutChanges: () => false,
   })
 
   // Droppable for accepting task drops
@@ -103,9 +115,14 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
     id: createDragId('project', projectId),
   })
 
+  // Keep item hidden and skip transforms while being dragged OR while overlay is still showing
+  // This prevents the flash where both item and overlay are visible during the 50ms delay
+  const isActive = activeId === projectId
+  const shouldHide = isDragging || isActive
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: shouldHide ? undefined : CSS.Transform.toString(transform),
+    transition: shouldHide || isSorting ? undefined : transition,
   }
 
   const isSelected = selection.type === 'project' && selection.projectId === projectId
@@ -131,7 +148,7 @@ export function DraggableProjectItem({ projectId, name, color }: DraggableProjec
         'group flex items-center gap-1 px-2 py-1.5 mt-0.5 rounded-md text-sm transition-colors',
         'hover:bg-accent/50',
         isSelected && 'bg-accent text-accent-foreground',
-        isDragging && 'opacity-0',
+        shouldHide && 'opacity-0',
         isDraggingTask && 'bg-primary/5',
         isOver && 'bg-primary/15'
       )}

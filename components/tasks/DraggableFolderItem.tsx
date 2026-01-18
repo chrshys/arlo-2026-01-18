@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { ChevronRight, Folder, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTaskNavigation } from '@/hooks/use-task-navigation'
+import { useUnifiedDrag } from './TasksView'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -39,21 +40,30 @@ export function DraggableFolderItem({
   isDropTarget = false,
 }: DraggableFolderItemProps) {
   const { expandedFolders, toggleFolder } = useTaskNavigation()
+  const { activeId } = useUnifiedDrag()
   const projects = useQuery(api.projects.listByFolder, { folderId })
   const reorderProjects = useMutation(api.projects.reorder)
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: folderId,
-  })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
+    useSortable({
+      id: folderId,
+      // Disable layout animations - we use database mutations which cause full re-renders
+      animateLayoutChanges: () => false,
+    })
 
   // Make this folder a drop target for projects
   const { isOver, setNodeRef: setDropRef } = useDroppable({
     id: folderId,
   })
 
+  // Keep item hidden and skip transforms while being dragged OR while overlay is still showing
+  // This prevents the flash where both item and overlay are visible during the 50ms delay
+  const isActive = activeId === folderId
+  const shouldHide = isDragging || isActive
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: shouldHide ? undefined : CSS.Transform.toString(transform),
+    transition: shouldHide || isSorting ? undefined : transition,
   }
 
   const sensors = useSensors(
@@ -99,7 +109,7 @@ export function DraggableFolderItem({
         className={cn(
           'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm transition-colors',
           'hover:bg-accent/50',
-          isDragging && 'opacity-50 bg-accent',
+          shouldHide && 'opacity-0',
           isDropTarget && isOver && 'ring-2 ring-primary bg-primary/10'
         )}
       >

@@ -1,29 +1,52 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { SmartListItem } from './SmartListItem'
 import { SortableFolderTree } from './SortableFolderTree'
 import { PanelHeader } from '@/components/layout/PanelHeader'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Folder, Hash } from 'lucide-react'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { useTaskNavigation } from '@/hooks/use-task-navigation'
 
 interface TasksSidebarProps {
   className?: string
 }
 
 export function TasksSidebar({ className }: TasksSidebarProps) {
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const addMenuRef = useRef<HTMLDivElement>(null)
+  const { setEditingFolderId, setEditingProjectId } = useTaskNavigation()
+
   const createFolder = useMutation(api.folders.create)
   const createProject = useMutation(api.projects.create)
 
   const handleAddFolder = async () => {
-    await createFolder({ name: 'New Folder' })
+    setShowAddMenu(false)
+    const folderId = await createFolder({ name: '' })
+    setEditingFolderId(folderId)
   }
 
   const handleAddProject = async () => {
-    await createProject({ name: 'New Project' })
+    setShowAddMenu(false)
+    const projectId = await createProject({ name: '' })
+    setEditingProjectId(projectId)
   }
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setShowAddMenu(false)
+      }
+    }
+
+    if (showAddMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAddMenu])
 
   return (
     <div className={cn('h-full flex flex-col', className)}>
@@ -56,15 +79,36 @@ export function TasksSidebar({ className }: TasksSidebarProps) {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Projects
             </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={handleAddFolder}
-              title="New folder"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
+            <div className="relative" ref={addMenuRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setShowAddMenu(!showAddMenu)}
+                title="Add project or folder"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+
+              {showAddMenu && (
+                <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[140px]">
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                    onClick={handleAddProject}
+                  >
+                    <Hash className="h-3 w-3" />
+                    New project
+                  </button>
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+                    onClick={handleAddFolder}
+                  >
+                    <Folder className="h-3 w-3" />
+                    New folder
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <SortableFolderTree />
         </div>

@@ -41,11 +41,20 @@ export function DroppableFolderItem({
   isSelected = false,
   onSelect,
 }: DroppableFolderItemProps) {
-  const { expandedFolders, toggleFolder, expandFolder } = useTaskNavigation()
-  const { activeType } = useUnifiedDrag()
+  const { expandedFolders, toggleFolder, expandFolder, editingFolderId, setEditingFolderId } =
+    useTaskNavigation()
+  const { activeId, activeType } = useUnifiedDrag()
 
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(name)
+
+  // Start editing if this folder was just created
+  useEffect(() => {
+    if (editingFolderId === folderId) {
+      setIsEditing(true)
+      setEditingFolderId(null)
+    }
+  }, [editingFolderId, folderId, setEditingFolderId])
   const [showMenu, setShowMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -78,11 +87,11 @@ export function DroppableFolderItem({
   }, [showMenu])
 
   const handleSave = async () => {
-    if (editedName.trim() && editedName !== name) {
-      await updateFolder({ id: folderId, name: editedName.trim() })
-    } else {
-      setEditedName(name)
+    const finalName = editedName.trim() || 'New Folder'
+    if (finalName !== name) {
+      await updateFolder({ id: folderId, name: finalName })
     }
+    setEditedName(finalName)
     setIsEditing(false)
   }
 
@@ -105,18 +114,26 @@ export function DroppableFolderItem({
     setShowMenu(false)
   }
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: folderId,
-  })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
+    useSortable({
+      id: folderId,
+      // Disable layout animations - we use database mutations which cause full re-renders
+      animateLayoutChanges: () => false,
+    })
 
   // Make this folder a drop target for projects
   const { isOver, setNodeRef: setDropRef } = useDroppable({
     id: folderId,
   })
 
+  // Keep item hidden and skip transforms while being dragged OR while overlay is still showing
+  // This prevents the flash where both item and overlay are visible during the 50ms delay
+  const isActive = activeId === folderId
+  const shouldHide = isDragging || isActive
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: shouldHide ? undefined : CSS.Transform.toString(transform),
+    transition: shouldHide || isSorting ? undefined : transition,
   }
 
   const isExpanded = expandedFolders.has(folderId)
@@ -143,7 +160,7 @@ export function DroppableFolderItem({
         className={cn(
           'group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm transition-colors',
           'hover:bg-accent/50',
-          isDragging && 'opacity-50 bg-accent',
+          shouldHide && 'opacity-0',
           isDropTarget && isOver && 'bg-primary/15',
           isSelected && 'bg-accent'
         )}

@@ -1160,3 +1160,26 @@ When creating a note, the NoteRow becomes immediately editable:
 | `components/tasks/QuickAddTask.tsx`  | Added hideButton and onClose props                   |
 
 **Result:** Cleaner project view with less visual clutter. Completed tasks consolidated. Task creation accessible via section menu.
+
+---
+
+### 2026-01-17 (continued) — Drag Reorder Flash Fix
+
+**Issue:** Dragging to reorder items in the left panel or task list caused a fast, jerky flash where the dropped item appeared to snap back to its origin before landing.
+
+**Root Cause:** Reorder mutations updated the server order after drop, so lists briefly rendered in old order before the new order arrived.
+
+**Fix:** Added optimistic ordering for drag reorders:
+
+- Sidebar folders/projects: `SortableFolderTree` now keeps temporary order state until server order matches.
+- Task list: `SmartListView` and `SectionGroup` apply the same optimistic order on drop.
+
+**Files Modified:**
+
+| File                                      | Changes                                |
+| ----------------------------------------- | -------------------------------------- |
+| `components/tasks/SortableFolderTree.tsx` | Optimistic folder/project ordering     |
+| `components/tasks/TaskListPanel.tsx`      | Optimistic task ordering in smart list |
+| `components/tasks/SectionGroup.tsx`       | Optimistic task ordering in sections   |
+
+**Result:** Drag-and-drop reordering now feels smooth with no snap-back flash.
