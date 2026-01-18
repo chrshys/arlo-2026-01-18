@@ -1183,3 +1183,55 @@ When creating a note, the NoteRow becomes immediately editable:
 | `components/tasks/SectionGroup.tsx`       | Optimistic task ordering in sections   |
 
 **Result:** Drag-and-drop reordering now feels smooth with no snap-back flash.
+
+---
+
+### 2026-01-17 (continued) — Draggable Notes
+
+**Focus:** Make notes draggable and sortable within lists and across projects, with mixed task/note ordering.
+
+**Branch:** `feature/draggable-notes`
+
+**Design Decisions:**
+
+1. **Mixed Ordering** — Notes and tasks share the same `sortOrder` space, allowing free interleaving (note above task above note)
+2. **Unified sortOrder** — Both tables already have `sortOrder` fields; we merge and sort by this when rendering
+3. **Drop Targets** — Notes can drop on sections and projects only (not smart lists like "Today" since notes don't have due dates)
+
+**Implementation:**
+
+1. Added `'note'` to `DragItemType` union in `drag-utils.ts`
+2. Created Convex mutations: `reorderMixed` (updates sortOrder for mixed lists), `moveToSection` (moves note to section/project)
+3. Created `DraggableNoteRow` component mirroring `DraggableTaskRow` pattern (useSortable, grip handle, drag overlay)
+4. Updated `SectionGroup` with unified `SortableContext` combining tasks and notes
+5. Updated `TasksView` with note collision detection and drop handling
+6. Updated `TaskListPanel` `SmartListView` to use `DraggableNoteRow` with mixed ordering
+
+**Files Created:**
+
+| File                                                      | Purpose                             |
+| --------------------------------------------------------- | ----------------------------------- |
+| `components/notes/DraggableNoteRow.tsx`                   | Draggable note row with grip handle |
+| `docs/plans/2026-01-17-draggable-notes-design.md`         | Design document                     |
+| `docs/plans/2026-01-17-draggable-notes-implementation.md` | Implementation plan                 |
+
+**Files Modified:**
+
+| File                                 | Changes                                          |
+| ------------------------------------ | ------------------------------------------------ |
+| `lib/drag-utils.ts`                  | Added 'note' to DragItemType                     |
+| `convex/notes.ts`                    | Added reorderMixed, moveToSection mutations      |
+| `components/tasks/SectionGroup.tsx`  | Unified SortableContext for mixed ordering       |
+| `components/tasks/TasksView.tsx`     | Note collision detection, drop handling, overlay |
+| `components/tasks/TaskListPanel.tsx` | DraggableNoteRow in smart list views             |
+
+**Drag & Drop Behavior:**
+
+| Action                          | Result                              |
+| ------------------------------- | ----------------------------------- |
+| Drag note within section        | Reorders among tasks/notes          |
+| Drag note to different section  | Moves to section (appends at end)   |
+| Drag note to project in sidebar | Moves to project's unsectioned area |
+| Drag task below note            | Mixed ordering preserved            |
+
+**Result:** Notes now have grip handles and can be dragged to reorder among tasks or moved between sections/projects.
