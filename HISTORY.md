@@ -1076,3 +1076,87 @@ When creating a note, the NoteRow becomes immediately editable:
 | `components/notes/NoteEditor.tsx`     | Added auto-focus on mount when flag set              |
 
 **Result:** Seamless keyboard-only flow: click "New note" → type title → Enter → cursor in editor body.
+
+---
+
+### 2026-01-17 (continued) — Folder View Implementation
+
+**Focus:** Show folder contents (all projects/sections/tasks) in main panel when clicking a folder.
+
+**Branch:** `feature/folder-view`
+
+**Activities:**
+
+1. Extended selection model to support folder type
+2. Made folders selectable in sidebar (chevron toggles expand, name selects)
+3. Created `CollapsibleProject` component for rendering projects within folder view
+4. Added `FolderView` component to `TaskListPanel`
+5. Updated `TaskListHeader` for folder context
+6. Implemented cross-project task drag & drop in folder view
+7. Added droppable zones to `SectionGroup` for cross-project moves
+8. Hid per-section completed tasks in folder view for cleaner appearance
+
+**Files Created:**
+
+| File                                                  | Purpose                                           |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| `components/tasks/CollapsibleProject.tsx`             | Expandable project wrapper showing sections/tasks |
+| `docs/plans/2026-01-17-folder-view-implementation.md` | Implementation plan                               |
+
+**Files Modified:**
+
+| File                                       | Changes                                           |
+| ------------------------------------------ | ------------------------------------------------- |
+| `hooks/use-task-navigation.tsx`            | Added `folder` selection type                     |
+| `components/tasks/DroppableFolderItem.tsx` | Split click handlers (chevron vs name), selection |
+| `components/tasks/SortableFolderTree.tsx`  | Wire up folder selection props                    |
+| `components/tasks/TaskListPanel.tsx`       | Add FolderView, folder data fetching              |
+| `components/tasks/TaskListHeader.tsx`      | Handle folder context, hide add section           |
+| `components/tasks/TasksView.tsx`           | Cross-project drop handling                       |
+| `components/tasks/SectionGroup.tsx`        | Droppable zones, hideCompletedSection prop        |
+
+**Technical Notes:**
+
+- Folder selection uses `{ type: 'folder', folderId }` in navigation context
+- `FolderView` fetches data per-project using `FolderProjectWrapper` components
+- Droppable IDs use format `section::{projectId}::{sectionId}` or `unsectioned::{projectId}`
+- Cross-project moves handled in `TasksView.handleDragEnd` with collision detection
+
+**Drag & Drop in Folder View:**
+
+| Action                                        | Result                              |
+| --------------------------------------------- | ----------------------------------- |
+| Drag task within section                      | Reorders                            |
+| Drag task to different section (same project) | Moves to section                    |
+| Drag task to different project                | Moves to project's unsectioned area |
+| Drag task to section in different project     | Moves to that section               |
+
+**Result:** Clicking a folder shows all projects within it, with collapsible project headers. Tasks can be dragged between projects. Completed tasks hidden for cleaner view.
+
+---
+
+### 2026-01-17 (continued) — Project View UX Improvements
+
+**Focus:** Consolidate completed sections and streamline task creation in project view.
+
+**Changes:**
+
+1. **Unified Completed Section** — Project view now has a single "Completed" section at the bottom instead of one per section
+   - Added `hideCompletedSection` prop to both `SectionGroup` components in `ProjectView`
+   - Added collapsible "Completed (n)" section at bottom showing all completed tasks
+   - Uses same expand/collapse pattern as before
+
+2. **Moved Add Task to Section Menu** — Removed "+ Add task" button from under each section
+   - Added "Add task" option to section dropdown menu (⋮ button)
+   - Kept "+ Add task" button visible for unsectioned area at top of list
+   - Added `hideButton` and `onClose` props to `QuickAddTask` for menu-triggered adding
+
+**Files Modified:**
+
+| File                                 | Changes                                              |
+| ------------------------------------ | ---------------------------------------------------- |
+| `components/tasks/TaskListPanel.tsx` | Unified completed section, hideCompletedSection prop |
+| `components/tasks/SectionGroup.tsx`  | Add task menu item, hideButton prop for QuickAddTask |
+| `components/tasks/QuickAddTask.tsx`  | Added hideButton and onClose props                   |
+
+**Result:** Cleaner project view with less visual clutter. Completed tasks consolidated. Task creation accessible via section menu.
