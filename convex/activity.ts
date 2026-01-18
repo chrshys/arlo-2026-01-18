@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 
 export const log = internalMutation({
   args: {
+    userId: v.id('users'),
     action: v.string(),
     actor: v.union(v.literal('user'), v.literal('arlo')),
     outcome: v.union(v.literal('success'), v.literal('error')),
