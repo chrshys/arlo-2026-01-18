@@ -146,6 +146,31 @@ export function TasksView() {
         return rectIntersection(args)
       }
 
+      if (activeType === 'note') {
+        // For notes, prioritize sections and projects only (not smart lists)
+        if (pointerCollisions.length > 0) {
+          // Check for section drops (for cross-project moves)
+          const sectionCollision = pointerCollisions.find((c) => {
+            const id = c.id as string
+            return id.startsWith('section::') || id.startsWith('unsectioned::')
+          })
+          if (sectionCollision) {
+            return [sectionCollision]
+          }
+
+          // Then check for project drops
+          const projectCollision = pointerCollisions.find((c) => {
+            const parsed = parseDragId(c.id as string)
+            return parsed?.type === 'project'
+          })
+          if (projectCollision) {
+            return [projectCollision]
+          }
+        }
+        // Fall back to rect intersection for note reordering
+        return rectIntersection(args)
+      }
+
       if (activeType === 'project') {
         // For projects, check for folder drops first
         if (pointerCollisions.length > 0) {
@@ -194,8 +219,12 @@ export function TasksView() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
 
-    setActiveId(null)
-    setActiveType(null)
+    // Delay clearing active state to avoid flicker - let the reorder mutation
+    // trigger a re-render first, then hide the overlay
+    setTimeout(() => {
+      setActiveId(null)
+      setActiveType(null)
+    }, 50)
 
     if (!over) return
     if (active.id === over.id) return
