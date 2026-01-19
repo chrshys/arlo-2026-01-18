@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { query, mutation, internalMutation } from './_generated/server'
+import { query, mutation, internalMutation, internalQuery } from './_generated/server'
 import { GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_SCOPES } from './lib/integrationConstants'
 import { requireCurrentUser } from './lib/auth'
 
@@ -123,5 +123,21 @@ export const updateLastUsed = internalMutation({
   args: { integrationId: v.id('integrations') },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.integrationId, { lastUsedAt: Date.now() })
+  },
+})
+
+// Internal query: Get integration by userId and provider (for tools)
+export const getByUserIdAndProvider = internalQuery({
+  args: {
+    userId: v.id('users'),
+    provider: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query('integrations')
+      .withIndex('by_user_and_provider', (q) =>
+        q.eq('userId', args.userId).eq('provider', args.provider)
+      )
+      .first()
   },
 })
