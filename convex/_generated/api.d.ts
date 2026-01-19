@@ -10,8 +10,10 @@
 
 import type * as activity from "../activity.js";
 import type * as arlo_agent from "../arlo/agent.js";
+import type * as arlo_calendarActions from "../arlo/calendarActions.js";
 import type * as arlo_mutations from "../arlo/mutations.js";
 import type * as arlo_tools from "../arlo/tools.js";
+import type * as arlo_tools_calendar from "../arlo/tools/calendar.js";
 import type * as chat from "../chat.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
@@ -39,8 +41,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
   "arlo/agent": typeof arlo_agent;
+  "arlo/calendarActions": typeof arlo_calendarActions;
   "arlo/mutations": typeof arlo_mutations;
   "arlo/tools": typeof arlo_tools;
+  "arlo/tools/calendar": typeof arlo_tools_calendar;
   chat: typeof chat;
   folders: typeof folders;
   http: typeof http;

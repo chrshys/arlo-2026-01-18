@@ -14,6 +14,13 @@ import {
   listNotes,
   updateNote,
 } from './tools'
+import {
+  getCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  checkCalendarAvailability,
+} from './tools/calendar'
 
 const gateway = createGateway({
   apiKey: process.env.AI_GATEWAY_API_KEY,
@@ -73,6 +80,12 @@ When they mention personal items, check for Personal projects.`,
     createNote,
     listNotes,
     updateNote,
+    // Calendar tools
+    getCalendarEvents,
+    createCalendarEvent,
+    updateCalendarEvent,
+    deleteCalendarEvent,
+    checkCalendarAvailability,
   },
   maxSteps: 8,
 })

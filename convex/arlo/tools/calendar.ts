@@ -1,10 +1,7 @@
-'use node'
-
 import { createTool } from '@convex-dev/agent'
 import { z } from 'zod'
 import { internal } from '../../_generated/api'
 import { Id } from '../../_generated/dataModel'
-import { getNangoClient } from '../../lib/nango'
 import { GOOGLE_CALENDAR_PROVIDER } from '../../lib/integrationConstants'
 
 function getUserId(ctx: { userId?: string }): Id<'users'> {
@@ -55,29 +52,26 @@ export const getCalendarEvents = createTool({
       return { events: [], error: result.error }
     }
 
-    const nango = getNangoClient()
     const now = new Date()
     const timeMin = args.startDate || now.toISOString()
     const timeMax = args.endDate || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
     try {
-      const params: Record<string, string> = {
+      const response = (await ctx.runAction(internal.arlo.calendarActions.getEvents, {
+        nangoConnectionId: result.integration.nangoConnectionId,
         timeMin,
         timeMax,
-        singleEvents: 'true',
-        orderBy: 'startTime',
+        query: args.query,
+      })) as {
+        events: Array<{
+          id: string
+          title: string
+          start: string | undefined
+          end: string | undefined
+          location: string | undefined
+          description: string | undefined
+        }>
       }
-      if (args.query) {
-        params.q = args.query
-      }
-
-      const response = await nango.proxy({
-        method: 'GET',
-        endpoint: '/calendar/v3/calendars/primary/events',
-        connectionId: result.integration.nangoConnectionId,
-        providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-        params,
-      })
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
         integrationId: result.integration._id,
@@ -91,30 +85,7 @@ export const getCalendarEvents = createTool({
         details: `Retrieved calendar events`,
       })
 
-      const events =
-        (
-          response.data as {
-            items?: Array<{
-              id: string
-              summary: string
-              start: { dateTime?: string; date?: string }
-              end: { dateTime?: string; date?: string }
-              location?: string
-              description?: string
-            }>
-          }
-        ).items || []
-
-      return {
-        events: events.map((e) => ({
-          id: e.id,
-          title: e.summary,
-          start: e.start.dateTime || e.start.date,
-          end: e.end.dateTime || e.end.date,
-          location: e.location,
-          description: e.description,
-        })),
-      }
+      return { events: response.events }
     } catch (error) {
       console.error('Failed to get calendar events:', error)
       return { events: [], error: 'Failed to retrieve calendar events' }
@@ -140,23 +111,16 @@ export const createCalendarEvent = createTool({
       return { eventId: null, error: result.error }
     }
 
-    const nango = getNangoClient()
-
     try {
-      const response = await nango.proxy({
-        method: 'POST',
-        endpoint: '/calendar/v3/calendars/primary/events',
-        connectionId: result.integration.nangoConnectionId,
-        providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-        data: {
-          summary: args.title,
-          start: { dateTime: args.startTime },
-          end: { dateTime: args.endTime },
-          description: args.description,
-          location: args.location,
-          attendees: args.attendees?.map((email) => ({ email })),
-        },
-      })
+      const response = (await ctx.runAction(internal.arlo.calendarActions.createEvent, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        title: args.title,
+        startTime: args.startTime,
+        endTime: args.endTime,
+        description: args.description,
+        location: args.location,
+        attendees: args.attendees,
+      })) as { eventId: string }
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
         integrationId: result.integration._id,
@@ -171,7 +135,7 @@ export const createCalendarEvent = createTool({
       })
 
       return {
-        eventId: (response.data as { id: string }).id,
+        eventId: response.eventId,
         message: `Created calendar event: "${args.title}"`,
       }
     } catch (error) {
@@ -199,22 +163,15 @@ export const updateCalendarEvent = createTool({
       return { success: false, error: result.error }
     }
 
-    const nango = getNangoClient()
-
     try {
-      const updateData: Record<string, unknown> = {}
-      if (args.title) updateData.summary = args.title
-      if (args.startTime) updateData.start = { dateTime: args.startTime }
-      if (args.endTime) updateData.end = { dateTime: args.endTime }
-      if (args.description) updateData.description = args.description
-      if (args.location) updateData.location = args.location
-
-      await nango.proxy({
-        method: 'PATCH',
-        endpoint: `/calendar/v3/calendars/primary/events/${args.eventId}`,
-        connectionId: result.integration.nangoConnectionId,
-        providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-        data: updateData,
+      await ctx.runAction(internal.arlo.calendarActions.updateEvent, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        eventId: args.eventId,
+        title: args.title,
+        startTime: args.startTime,
+        endTime: args.endTime,
+        description: args.description,
+        location: args.location,
       })
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
@@ -260,14 +217,10 @@ export const deleteCalendarEvent = createTool({
       return { success: false, error: result.error }
     }
 
-    const nango = getNangoClient()
-
     try {
-      await nango.proxy({
-        method: 'DELETE',
-        endpoint: `/calendar/v3/calendars/primary/events/${args.eventId}`,
-        connectionId: result.integration.nangoConnectionId,
-        providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
+      await ctx.runAction(internal.arlo.calendarActions.deleteEvent, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        eventId: args.eventId,
       })
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
@@ -305,42 +258,33 @@ export const checkCalendarAvailability = createTool({
       return { available: false, error: result.error }
     }
 
-    const nango = getNangoClient()
-
     try {
-      const response = await nango.proxy({
-        method: 'GET',
-        endpoint: '/calendar/v3/calendars/primary/events',
-        connectionId: result.integration.nangoConnectionId,
-        providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-        params: {
-          timeMin: args.startTime,
-          timeMax: args.endTime,
-          singleEvents: 'true',
-        },
-      })
+      const response = (await ctx.runAction(internal.arlo.calendarActions.checkAvailability, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        startTime: args.startTime,
+        endTime: args.endTime,
+      })) as { available: boolean; conflictCount: number }
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
         integrationId: result.integration._id,
       })
-
-      const events = (response.data as { items?: Array<unknown> }).items || []
-      const available = events.length === 0
 
       await ctx.runMutation(internal.activity.log, {
         userId,
         action: 'check_availability',
         actor: 'arlo',
         outcome: 'success',
-        details: available ? 'Time slot is available' : `Found ${events.length} conflicting events`,
+        details: response.available
+          ? 'Time slot is available'
+          : `Found ${response.conflictCount} conflicting events`,
       })
 
       return {
-        available,
-        message: available
+        available: response.available,
+        message: response.available
           ? 'This time slot is free'
-          : `There are ${events.length} event(s) during this time`,
-        conflictCount: events.length,
+          : `There are ${response.conflictCount} event(s) during this time`,
+        conflictCount: response.conflictCount,
       }
     } catch (error) {
       console.error('Failed to check availability:', error)
