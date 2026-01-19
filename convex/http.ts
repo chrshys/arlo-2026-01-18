@@ -81,4 +81,62 @@ http.route({
   }),
 })
 
+// Nango webhook types
+interface NangoWebhookPayload {
+  type: string
+  connectionId: string
+  providerConfigKey?: string
+}
+
+http.route({
+  path: '/webhooks/nango',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const webhookSecret = process.env.NANGO_WEBHOOK_SECRET
+    if (!webhookSecret) {
+      console.error('NANGO_WEBHOOK_SECRET not set')
+      return new Response('Webhook secret not configured', { status: 500 })
+    }
+
+    // Verify signature
+    const signature = request.headers.get('x-nango-signature')
+    if (!signature) {
+      return new Response('Missing signature header', { status: 400 })
+    }
+
+    const payload = await request.text()
+
+    // Verify HMAC signature using Web Crypto API
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(webhookSecret)
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(payload))
+    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    if (signature !== expectedSignature) {
+      console.error('Webhook signature mismatch')
+      return new Response('Invalid signature', { status: 401 })
+    }
+
+    const event = JSON.parse(payload) as NangoWebhookPayload
+
+    // Handle event
+    await ctx.runMutation(internal.integrations.handleWebhookEvent, {
+      type: event.type,
+      connectionId: event.connectionId,
+      provider: event.providerConfigKey,
+    })
+
+    return new Response('OK', { status: 200 })
+  }),
+})
+
 export default http

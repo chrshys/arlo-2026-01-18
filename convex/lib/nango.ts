@@ -1,4 +1,9 @@
+'use node'
+
 import { Nango } from '@nangohq/node'
+
+// Re-export constants for convenience
+export { GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_SCOPES } from './integrationConstants'
 
 let nangoClient: Nango | null = null
 
@@ -12,10 +17,3 @@ export function getNangoClient(): Nango {
   }
   return nangoClient
 }
-
-export const GOOGLE_CALENDAR_PROVIDER = 'google-calendar'
-
-export const GOOGLE_CALENDAR_SCOPES = [
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/calendar.events',
-]

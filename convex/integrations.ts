@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
-import { query, mutation, action, internalMutation } from './_generated/server'
-import { getNangoClient, GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_SCOPES } from './lib/nango'
-import { requireCurrentUser, getCurrentUserFromAction } from './lib/auth'
+import { query, mutation, internalMutation } from './_generated/server'
+import { GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_SCOPES } from './lib/integrationConstants'
+import { requireCurrentUser } from './lib/auth'
 
 // Query: Get user's integrations
 export const list = query({
@@ -26,29 +26,6 @@ export const getByProvider = query({
         q.eq('userId', user._id).eq('provider', args.provider)
       )
       .first()
-  },
-})
-
-// Action: Create a Nango session for OAuth
-export const createSession = action({
-  args: { provider: v.string() },
-  handler: async (ctx, args) => {
-    const userInfo = await getCurrentUserFromAction(ctx)
-    if (!userInfo) {
-      throw new Error('Unauthorized')
-    }
-    const nango = getNangoClient()
-
-    const session = await nango.createConnectSession({
-      end_user: {
-        id: userInfo.clerkId,
-        email: undefined,
-        display_name: undefined,
-      },
-      allowed_integrations: [args.provider],
-    })
-
-    return { sessionToken: session.data.token }
   },
 })
 
