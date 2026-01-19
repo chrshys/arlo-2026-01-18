@@ -92,9 +92,10 @@ http.route({
   path: '/webhooks/nango',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const webhookSecret = process.env.NANGO_WEBHOOK_SECRET
-    if (!webhookSecret) {
-      console.error('NANGO_WEBHOOK_SECRET not set')
+    // Nango uses the secret key for webhook signature verification
+    const secretKey = process.env.NANGO_SECRET_KEY
+    if (!secretKey) {
+      console.error('NANGO_SECRET_KEY not set')
       return new Response('Webhook secret not configured', { status: 500 })
     }
 
@@ -108,7 +109,7 @@ http.route({
 
     // Verify HMAC signature using Web Crypto API
     const encoder = new TextEncoder()
-    const keyData = encoder.encode(webhookSecret)
+    const keyData = encoder.encode(secretKey)
     const key = await crypto.subtle.importKey(
       'raw',
       keyData,
