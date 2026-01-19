@@ -1424,3 +1424,48 @@ Files correctly NOT requiring auth (internal-only):
 - `convex/users.ts` — `ensureUser` checks identity internally; others are `internal*`
 
 **Result:** Production auth working. All public endpoints now require authentication.
+
+---
+
+### 2026-01-18 (continued) — Double-Click Rename
+
+**Focus:** Add double-click to rename functionality across all renameable items.
+
+**Branch:** `ui-nits`
+
+**Commit:** `c1afb59`
+
+**Changes:**
+
+Added double-click to trigger inline rename mode for:
+
+| Component                 | Location   | File                                        |
+| ------------------------- | ---------- | ------------------------------------------- |
+| Folders                   | Sidebar    | `components/tasks/DroppableFolderItem.tsx`  |
+| Projects                  | Sidebar    | `components/tasks/DraggableProjectItem.tsx` |
+| Tasks                     | Main panel | `components/tasks/DraggableTaskRow.tsx`     |
+| Notes                     | Main panel | `components/notes/DraggableNoteRow.tsx`     |
+| Notes (non-draggable)     | Main panel | `components/notes/NoteRow.tsx`              |
+| Projects (in folder view) | Main panel | `components/tasks/CollapsibleProject.tsx`   |
+| Sections                  | Main panel | `components/tasks/SectionGroup.tsx`         |
+
+**Implementation Pattern:**
+
+All components follow the same pattern:
+
+- `onDoubleClick` handler on the text/name element
+- Sets `isEditing` state to true (or `setEditingNoteId(noteId)` for notes)
+- Existing inline editing infrastructure handles the rest (focus, save on Enter/blur, cancel on Escape)
+
+**New Code Added to DraggableTaskRow:**
+
+Task rows previously had no inline editing capability. Added:
+
+- `isEditing` and `editedTitle` state
+- `inputRef` for auto-focus
+- `updateTask` mutation call
+- Effects for focus and sync
+- `handleSave`, `handleKeyDown`, `handleDoubleClick` handlers
+- Conditional rendering of input vs span
+
+**Result:** Users can now double-click any task, note, project, folder, or section name to rename it inline.
