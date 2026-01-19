@@ -201,6 +201,7 @@ function BubbleSeparator() {
 interface NoteEditorProps {
   noteId: Id<'notes'>
   initialContent: string
+  onFocusReady?: (focus: () => void) => void
 }
 
 function EditorInner({
@@ -258,7 +259,7 @@ function EditorInner({
   return null
 }
 
-export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
+export function NoteEditor({ noteId, initialContent, onFocusReady }: NoteEditorProps) {
   const { shouldFocusNoteEditor, setShouldFocusNoteEditor } = useTaskNavigation()
   const extensions = useMemo(
     () => [
@@ -299,20 +300,20 @@ export function NoteEditor({ noteId, initialContent }: NoteEditorProps) {
   const handleEditorReady = useCallback(
     (focus: () => void) => {
       focusEditorRef.current = focus
+      // Expose focus function to parent
+      onFocusReady?.(focus)
       // Auto-focus if flag is set
       if (shouldFocusRef.current) {
         focus()
         setShouldFocusNoteEditor(false)
       }
     },
-    [setShouldFocusNoteEditor]
+    [setShouldFocusNoteEditor, onFocusReady]
   )
 
-  const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // Only focus if clicking directly on the container, not on editor content
-    if (e.target === e.currentTarget) {
-      focusEditorRef.current?.()
-    }
+  const handleContainerClick = useCallback(() => {
+    // Always focus the editor when clicking anywhere in the container
+    focusEditorRef.current?.()
   }, [])
 
   return (

@@ -22,6 +22,7 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
   const [title, setTitle] = useState('')
   const initializedRef = useRef<Id<'notes'> | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const focusEditorRef = useRef<(() => void) | null>(null)
 
   // Only sync from server on initial load or when noteId changes
   useEffect(() => {
@@ -51,6 +52,14 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
     },
     [noteId, updateNote]
   )
+
+  const handleEditorFocusReady = useCallback((focus: () => void) => {
+    focusEditorRef.current = focus
+  }, [])
+
+  const handleContainerClick = useCallback(() => {
+    focusEditorRef.current?.()
+  }, [])
 
   if (!note) {
     return (
@@ -94,8 +103,15 @@ export function NoteDetailPanel({ noteId, onClose }: NoteDetailPanelProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 flex flex-col min-h-0">
-        <NoteEditor noteId={noteId} initialContent={note.content} />
+      <div
+        className="flex-1 overflow-auto p-4 flex flex-col min-h-0 cursor-text"
+        onClick={handleContainerClick}
+      >
+        <NoteEditor
+          noteId={noteId}
+          initialContent={note.content}
+          onFocusReady={handleEditorFocusReady}
+        />
       </div>
     </div>
   )
