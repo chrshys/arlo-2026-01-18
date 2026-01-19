@@ -6,7 +6,7 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 ## Current State
 
-**Phase:** Foundation + Task Depth + Auth complete, ready for Proactive phase
+**Phase:** Foundation + Task Depth + Auth + Integrations complete, ready for Proactive phase
 
 **Implemented:**
 
@@ -23,6 +23,7 @@ This file captures summaries of development sessions, key decisions made, and ar
 - **Conversation list** — thread switching, explicit new conversation, auto-generated titles
 - **Task depth** — full task management system (see below)
 - **Clerk authentication** — multi-user support with full data isolation (see below)
+- **Nango integrations** — OAuth integration framework with Google Calendar (see below)
 
 **Task Depth Features:**
 
@@ -44,6 +45,15 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Route protection via middleware
 - Multi-user data isolation (userId on all tables)
 - Themed sign-in/sign-up pages with dark mode support
+
+**Integration Features (Nango):**
+
+- OAuth integration framework via Nango
+- Google Calendar integration with full CRUD
+- Integrations settings page at `/settings/integrations`
+- Connection status tracking (active, expired, revoked)
+- Webhook handler for token refresh errors and revocations
+- 5 Arlo calendar tools: getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCalendarAvailability
 
 **Blockers:** None
 
@@ -444,25 +454,26 @@ pnpm test           # Vitest
 
 ## Key Decisions
 
-| Date       | Decision                              | Rationale                                                                                  |
-| ---------- | ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 2026-01-16 | Use `@convex-dev/agent` as foundation | Thread model fits shared workspace, human-in-the-loop supported, native Convex integration |
-| 2026-01-16 | Adopt Lead Agent patterns             | Tool limits, structured outputs, approval flow pattern                                     |
-| 2026-01-16 | Lean into Vercel ecosystem            | AI SDK, excellent tooling, active development                                              |
-| 2026-01-16 | No hybrid with Vercel Workflow        | Convex Agent + Workflow components provide all needed capabilities                         |
-| 2026-01-16 | Foundation complete                   | Implemented 01-foundation.md plan, first milestone achieved                                |
-| 2026-01-16 | Dev tooling for AI-written code       | Prettier, ESLint, Vitest, Husky — consistency across sessions, auto-catch errors           |
-| 2026-01-16 | Skip CI/CD for now                    | Solo developer; git hooks sufficient; add CI when collaborating or before production       |
-| 2026-01-16 | Migrate to Vercel AI Gateway          | Token/spend tracking, provider fallbacks, future model routing for different agent types   |
-| 2026-01-16 | Activity dashboard design             | In-app spend visibility; table-only MVP with settings sidebar for future expansion         |
-| 2026-01-16 | Activity dashboard implemented        | Settings section with activity table; iterates threads for MVP (no cross-thread index)     |
-| 2026-01-16 | Design system with shadcn/ui          | CSS variable-based theming; dark mode from day one; pull components as needed              |
-| 2026-01-17 | Separate tables over unified pages    | Simpler implementation for MVP; can migrate to pages model if it proves valuable           |
-| 2026-01-17 | Task depth before proactive           | Give Arlo more to work with; proactive behaviors need tasks to manage                      |
-| 2026-01-17 | dnd-kit for drag/drop                 | Lightweight, composable, good React integration                                            |
-| 2026-01-17 | Novel for notes editor                | Notion-style blocks, Vercel ecosystem, TipTap/ProseMirror under hood                       |
-| 2026-01-17 | Web-first cross-platform              | Novel needs browser; Electron for desktop, WebView for mobile when needed                  |
-| 2026-01-18 | Clerk for authentication              | Managed auth, OAuth support, excellent Next.js/Convex integration, webhook-based user sync |
+| Date       | Decision                              | Rationale                                                                                   |
+| ---------- | ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 2026-01-16 | Use `@convex-dev/agent` as foundation | Thread model fits shared workspace, human-in-the-loop supported, native Convex integration  |
+| 2026-01-16 | Adopt Lead Agent patterns             | Tool limits, structured outputs, approval flow pattern                                      |
+| 2026-01-16 | Lean into Vercel ecosystem            | AI SDK, excellent tooling, active development                                               |
+| 2026-01-16 | No hybrid with Vercel Workflow        | Convex Agent + Workflow components provide all needed capabilities                          |
+| 2026-01-16 | Foundation complete                   | Implemented 01-foundation.md plan, first milestone achieved                                 |
+| 2026-01-16 | Dev tooling for AI-written code       | Prettier, ESLint, Vitest, Husky — consistency across sessions, auto-catch errors            |
+| 2026-01-16 | Skip CI/CD for now                    | Solo developer; git hooks sufficient; add CI when collaborating or before production        |
+| 2026-01-16 | Migrate to Vercel AI Gateway          | Token/spend tracking, provider fallbacks, future model routing for different agent types    |
+| 2026-01-16 | Activity dashboard design             | In-app spend visibility; table-only MVP with settings sidebar for future expansion          |
+| 2026-01-16 | Activity dashboard implemented        | Settings section with activity table; iterates threads for MVP (no cross-thread index)      |
+| 2026-01-16 | Design system with shadcn/ui          | CSS variable-based theming; dark mode from day one; pull components as needed               |
+| 2026-01-17 | Separate tables over unified pages    | Simpler implementation for MVP; can migrate to pages model if it proves valuable            |
+| 2026-01-17 | Task depth before proactive           | Give Arlo more to work with; proactive behaviors need tasks to manage                       |
+| 2026-01-17 | dnd-kit for drag/drop                 | Lightweight, composable, good React integration                                             |
+| 2026-01-17 | Novel for notes editor                | Notion-style blocks, Vercel ecosystem, TipTap/ProseMirror under hood                        |
+| 2026-01-17 | Web-first cross-platform              | Novel needs browser; Electron for desktop, WebView for mobile when needed                   |
+| 2026-01-18 | Clerk for authentication              | Managed auth, OAuth support, excellent Next.js/Convex integration, webhook-based user sync  |
+| 2026-01-18 | Nango for OAuth integrations          | Handles token lifecycle (storage, refresh, revocation), proxy for API calls, webhook events |
 
 ---
 
@@ -1469,3 +1480,129 @@ Task rows previously had no inline editing capability. Added:
 - Conditional rendering of input vs span
 
 **Result:** Users can now double-click any task, note, project, folder, or section name to rename it inline.
+
+---
+
+### 2026-01-18 (continued) — Nango Integrations Implementation
+
+**Focus:** Add OAuth integration framework using Nango, starting with Google Calendar.
+
+**Branch:** `feat/nango-integrations`
+
+**Activities:**
+
+1. Created comprehensive implementation plan from approved design doc
+2. Installed Nango packages (`@nangohq/node`, `@nangohq/frontend`)
+3. Added `integrations` table to schema with status tracking
+4. Created Nango client wrapper with singleton pattern
+5. Built integrations Convex functions (queries, mutations, actions)
+6. Added Nango webhook handler for token lifecycle events
+7. Created integrations settings page with connect/disconnect UI
+8. Implemented 5 calendar tools for Arlo
+9. Registered calendar tools with Arlo agent
+
+**Architecture Discoveries:**
+
+Convex's bundler and runtime constraints required significant refactoring from the original plan:
+
+| Issue                                               | Solution                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Nango SDK requires Node.js                          | Separated code into `'use node'` files                                               |
+| Can't import `'use node'` files into non-node files | Created `calendarActions.ts` for API calls, tools call actions via `ctx.runAction()` |
+| Webhook handler can't use Node crypto               | Used Web Crypto API for HMAC verification                                            |
+| No separate webhook secret in Nango UI              | Webhook uses same `NANGO_SECRET_KEY` for signature verification                      |
+
+**Final File Structure:**
+
+```
+convex/
+├── integrations.ts              # Queries, mutations (no Node.js)
+├── integrationsNode.ts          # createSession action (Node.js)
+├── http.ts                      # Webhook handler (added Nango route)
+├── lib/
+│   ├── nango.ts                 # Nango client (Node.js)
+│   └── integrationConstants.ts  # Constants (no Node.js)
+├── arlo/
+│   ├── agent.ts                 # Registered calendar tools
+│   ├── calendarActions.ts       # Calendar API actions (Node.js)
+│   └── tools/
+│       └── calendar.ts          # Tool definitions (no Node.js)
+
+app/settings/integrations/
+└── page.tsx                     # Settings page
+
+components/integrations/
+├── IntegrationCard.tsx          # Reusable card component
+└── NangoConnectButton.tsx       # Nango SDK wrapper
+```
+
+**Nango SDK API Differences from Plan:**
+
+| Plan                                     | Actual                                                           |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `nango.auth.createConnectSession()`      | `nango.createConnectSession()`                                   |
+| `session.token`                          | `session.data.token`                                             |
+| `nango.auth(provider, { sessionToken })` | `new Nango({ connectSessionToken })` then `nango.auth(provider)` |
+
+**Files Created:**
+
+| File                                                         | Purpose                                   |
+| ------------------------------------------------------------ | ----------------------------------------- |
+| `convex/integrations.ts`                                     | Queries, mutations, internal mutations    |
+| `convex/integrationsNode.ts`                                 | Node.js action for OAuth session creation |
+| `convex/lib/nango.ts`                                        | Nango client singleton                    |
+| `convex/lib/integrationConstants.ts`                         | Provider constants                        |
+| `convex/arlo/calendarActions.ts`                             | Internal actions for Google Calendar API  |
+| `convex/arlo/tools/calendar.ts`                              | 5 calendar tool definitions               |
+| `app/settings/integrations/page.tsx`                         | Settings page                             |
+| `components/integrations/IntegrationCard.tsx`                | Card component                            |
+| `components/integrations/NangoConnectButton.tsx`             | Connect button                            |
+| `docs/plans/2026-01-18-nango-integrations-implementation.md` | Implementation plan                       |
+
+**Files Modified:**
+
+| File                      | Changes                     |
+| ------------------------- | --------------------------- |
+| `convex/schema.ts`        | Added integrations table    |
+| `convex/http.ts`          | Added Nango webhook route   |
+| `convex/arlo/agent.ts`    | Registered 5 calendar tools |
+| `app/settings/layout.tsx` | Added Integrations nav item |
+
+**New Packages:**
+
+| Package             | Purpose               |
+| ------------------- | --------------------- |
+| `@nangohq/node`     | Server-side Nango SDK |
+| `@nangohq/frontend` | Client-side Nango SDK |
+
+**Environment Variables:**
+
+| Variable           | Location   |
+| ------------------ | ---------- |
+| `NANGO_SECRET_KEY` | Convex env |
+
+**Commits:**
+
+```
+f04ab36 chore: add nango dependencies
+52a9bc3 feat: add integrations table to schema
+5e490c3 feat: add Nango client wrapper
+edbd73c feat: add integrations queries, mutations, and actions
+6cb13b0 feat: add Nango webhook handler
+3a78e11 feat: add integrations settings page with Google Calendar
+64faca7 feat: add Google Calendar tools for Arlo
+c2e0af4 feat: register calendar tools with Arlo agent
+93d6364 fix: use NANGO_SECRET_KEY for webhook verification
+```
+
+**Arlo Calendar Tools:**
+
+| Tool                        | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| `getCalendarEvents`         | List events in date range with optional search                   |
+| `createCalendarEvent`       | Create event with title, times, description, location, attendees |
+| `updateCalendarEvent`       | Modify existing event fields                                     |
+| `deleteCalendarEvent`       | Delete event (requires confirmation flag)                        |
+| `checkCalendarAvailability` | Check if time slot is free                                       |
+
+**Result:** Full Google Calendar integration via Nango. Users can connect/disconnect in settings. Arlo can read, create, update, and delete calendar events. Webhook handles token expiry/revocation.
