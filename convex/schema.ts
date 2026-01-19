@@ -104,4 +104,17 @@ export default defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_created_at', ['createdAt']),
+
+  integrations: defineTable({
+    userId: v.id('users'),
+    provider: v.string(),
+    nangoConnectionId: v.string(),
+    status: v.union(v.literal('active'), v.literal('expired'), v.literal('revoked')),
+    scopes: v.array(v.string()),
+    connectedAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_and_provider', ['userId', 'provider'])
+    .index('by_nango_connection', ['nangoConnectionId']),
 })
