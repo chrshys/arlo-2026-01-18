@@ -9,6 +9,7 @@ interface SettingsLayoutProps {
 
 const navItems = [
   { href: '/settings/activity', label: 'Activity' },
+  { href: '/settings/integrations', label: 'Integrations' },
   { href: '/settings/appearance', label: 'Appearance' },
 ]
 
