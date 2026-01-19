@@ -8,6 +8,7 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    timezone: v.optional(v.string()), // IANA timezone, e.g., "America/New_York"
     createdAt: v.number(),
     updatedAt: v.number(),
   })

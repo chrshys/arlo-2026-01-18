@@ -55,6 +55,13 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Webhook handler for token refresh errors and revocations
 - 5 Arlo calendar tools: getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCalendarAvailability
 
+**User Settings:**
+
+- Account settings page at `/settings/account`
+- Per-user timezone configuration (used for calendar events)
+- Nango integration playbook for adding new integrations
+- Onboarding notes doc for future onboarding flow
+
 **Blockers:** None
 
 **Next Priority:** Proactive features (scheduled functions, morning check-ins, task grooming)
@@ -1606,3 +1613,161 @@ c2e0af4 feat: register calendar tools with Arlo agent
 | `checkCalendarAvailability` | Check if time slot is free                                       |
 
 **Result:** Full Google Calendar integration via Nango. Users can connect/disconnect in settings. Arlo can read, create, update, and delete calendar events. Webhook handles token expiry/revocation.
+
+---
+
+### 2026-01-18 (continued) — Calendar Tools Debugging & Fixes
+
+**Focus:** Debug and fix calendar tools not working despite integration being connected.
+
+**Issue 1: userId Not Passed to Tools**
+
+Arlo responded "Google Calendar isn't connected yet" even though the integration was active in the database.
+
+**Symptom:** Tools reported `ctx.userId` was `undefined` even though context keys included `'userId'`.
+
+**Root Cause:** The `@convex-dev/agent` library's `generateText` method has a specific signature:
+
+```typescript
+generateText(
+  ctx: ActionCtx,                           // 1st: action context
+  threadOpts: { userId?, threadId? },       // 2nd: user/thread binding
+  generateTextArgs: { promptMessageId, ... } // 3rd: generation args
+)
+```
+
+The `userId` must be passed in the **second parameter** (`threadOpts`), not by extending the context.
+
+**Incorrect:**
+
+```typescript
+await arlo.generateText(
+  { ...ctx, userId }, // Wrong: extending context doesn't work
+  { threadId },
+  { promptMessageId }
+)
+```
+
+**Correct:**
+
+```typescript
+await arlo.generateText(
+  ctx,
+  { userId, threadId }, // Correct: userId in threadOpts
+  { promptMessageId }
+)
+```
+
+The library populates `ctx.userId` in the tool context from the `threadOpts` parameter.
+
+**Issue 2: Google Calendar API 400 Error**
+
+After fixing userId, the API returned `400 Bad Request`.
+
+**Root Cause:** LLM passed date strings like `'2024-12-18'` but Google Calendar API requires full RFC 3339 timestamps like `'2024-12-18T00:00:00Z'`.
+
+**Fix:** Added `toISODateTime()` helper to convert date-only strings to full ISO format:
+
+```typescript
+function toISODateTime(dateStr: string, endOfDay = false): string {
+  if (dateStr.includes('T')) return dateStr
+  const time = endOfDay ? 'T23:59:59Z' : 'T00:00:00Z'
+  return `${dateStr}${time}`
+}
+```
+
+**Files Modified:**
+
+| File                            | Changes                             |
+| ------------------------------- | ----------------------------------- |
+| `convex/chat.ts`                | Fixed `generateText` call signature |
+| `convex/arlo/tools/calendar.ts` | Added date format conversion        |
+
+**Debugging Approach:**
+
+1. Added console.log statements throughout the tool chain
+2. Verified integration record existed and was active in database
+3. Traced context through: chat.ts → agent → tool handler
+4. Discovered userId key existed but value was undefined
+5. Researched `@convex-dev/agent` type definitions to find correct API
+
+**Lessons Learned:**
+
+1. **Read library type definitions** — The `generateText` signature wasn't obvious from examples; type defs showed the correct parameter structure
+2. **Don't assume context spreading works** — Libraries may create new context objects internally
+3. **Validate API input formats** — External APIs (Google Calendar) have strict format requirements that LLMs may not follow
+4. **Add debug logging early** — Console.log statements quickly identified where the chain broke
+
+**Result:** Calendar tools now work end-to-end. Arlo can successfully query and manage Google Calendar events.
+
+---
+
+### 2026-01-19 — Calendar Timezone Fix & User Settings
+
+**Focus:** Fix calendar event creation failing with 400 error, add per-user timezone settings.
+
+**Issue:** Creating calendar events via Arlo failed with `400 Bad Request` from Google Calendar API.
+
+**Root Cause:** Google Calendar API requires timezone information with datetime values. The `createEvent` and `updateEvent` actions were sending bare datetime strings without timezone:
+
+```typescript
+// Broken
+start: { dateTime: args.startTime }  // e.g., "2024-01-19T14:00:00"
+
+// Fixed
+start: { dateTime: args.startTime, timeZone: tz }
+```
+
+**Fix:** Added `timeZone` parameter to calendar actions and wired through from user settings.
+
+**User Timezone Setting:**
+
+Added per-user timezone configuration:
+
+1. Added `timezone` field to users table schema (optional string, IANA format)
+2. Created `users.me` query and `users.updateTimezone` mutation
+3. Created `users.getTimezone` internal query for tools
+4. Built Account settings page (`/settings/account`) with timezone dropdown
+5. Updated calendar tools to fetch user timezone and pass to actions
+6. Actions use passed timezone or fall back to `America/New_York`
+
+**Files Created:**
+
+| File                                 | Purpose                               |
+| ------------------------------------ | ------------------------------------- |
+| `app/settings/account/page.tsx`      | Account settings with timezone picker |
+| `docs/onboarding-notes.md`           | Future onboarding flow requirements   |
+| `docs/nango-integration-playbook.md` | Guide for adding Nango integrations   |
+
+**Files Modified:**
+
+| File                             | Changes                                     |
+| -------------------------------- | ------------------------------------------- |
+| `convex/schema.ts`               | Added `timezone` to users table             |
+| `convex/users.ts`                | Added `me`, `updateTimezone`, `getTimezone` |
+| `convex/arlo/calendarActions.ts` | Accept `timezone` param, use in API calls   |
+| `convex/arlo/tools/calendar.ts`  | Fetch user timezone, pass to actions        |
+| `app/settings/layout.tsx`        | Added Account nav item                      |
+
+**Nango Integration Playbook:**
+
+Created comprehensive guide (`docs/nango-integration-playbook.md`) covering:
+
+- Architecture overview with data flow diagrams
+- Step-by-step process for adding new integrations
+- Common pitfalls (timezone, lastUsedAt, error handling, 'use node' directive)
+- Testing strategy with unit/integration test patterns
+- Mock patterns for Nango and tool context
+- Debugging guide with error codes
+
+**Onboarding Notes:**
+
+Created `docs/onboarding-notes.md` capturing items for future onboarding:
+
+- User preferences: timezone, name, communication style
+- Integrations: Calendar, Gmail, Slack (future)
+- Workspace setup: projects, folders, Arlo instructions
+- Onboarding flow design principles (progressive disclosure, quick wins)
+- Data structure for storing onboarding state
+
+**Result:** Calendar event creation now works. Users can configure their timezone in Settings → Account. Playbook and onboarding notes documented for future development.

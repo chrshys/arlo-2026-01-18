@@ -1,5 +1,6 @@
-import { internalMutation, internalQuery, mutation } from './_generated/server'
+import { internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { requireCurrentUser } from './lib/auth'
 
 // Called by frontend on app load to ensure user exists in database
 export const ensureUser = mutation({
@@ -91,5 +92,38 @@ export const getByClerkId = internalQuery({
       .query('users')
       .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
       .unique()
+  },
+})
+
+// Get user's timezone (for internal use by tools)
+export const getTimezone = internalQuery({
+  args: {
+    userId: v.id('users'),
+  },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId)
+    return user?.timezone || 'America/New_York'
+  },
+})
+
+// Get current user's profile
+export const me = query({
+  args: {},
+  handler: async (ctx) => {
+    return await requireCurrentUser(ctx)
+  },
+})
+
+// Update current user's timezone
+export const updateTimezone = mutation({
+  args: {
+    timezone: v.string(),
+  },
+  handler: async (ctx, { timezone }) => {
+    const user = await requireCurrentUser(ctx)
+    await ctx.db.patch(user._id, {
+      timezone,
+      updatedAt: Date.now(),
+    })
   },
 })

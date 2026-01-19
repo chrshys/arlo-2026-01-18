@@ -11,16 +11,29 @@ function getUserId(ctx: { userId?: string }): Id<'users'> {
   return ctx.userId as Id<'users'>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getCalendarConnection(ctx: any, userId: Id<'users'>) {
-  const integration = (await ctx.runQuery(internal.integrations.getByUserIdAndProvider, {
-    userId,
-    provider: GOOGLE_CALENDAR_PROVIDER,
-  })) as {
-    _id: Id<'integrations'>
-    nangoConnectionId: string
-    status: string
-  } | null
+type CalendarConnectionResult =
+  | { error: string }
+  | {
+      integration: { _id: Id<'integrations'>; nangoConnectionId: string; status: string }
+      timezone: string
+    }
+
+async function getCalendarConnection(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  userId: Id<'users'>
+): Promise<CalendarConnectionResult> {
+  const [integration, timezone] = await Promise.all([
+    ctx.runQuery(internal.integrations.getByUserIdAndProvider, {
+      userId,
+      provider: GOOGLE_CALENDAR_PROVIDER,
+    }) as Promise<{
+      _id: Id<'integrations'>
+      nangoConnectionId: string
+      status: string
+    } | null>,
+    ctx.runQuery(internal.users.getTimezone, { userId }) as Promise<string>,
+  ])
 
   if (!integration) {
     return {
@@ -34,14 +47,31 @@ async function getCalendarConnection(ctx: any, userId: Id<'users'>) {
     }
   }
 
-  return { integration }
+  return { integration, timezone }
+}
+
+// Convert a date string to full ISO 8601 format for Google Calendar API
+function toISODateTime(dateStr: string, endOfDay = false): string {
+  // If already looks like ISO datetime, return as-is
+  if (dateStr.includes('T')) {
+    return dateStr
+  }
+  // Otherwise assume it's a date like "2024-12-18" and add time
+  const time = endOfDay ? 'T23:59:59Z' : 'T00:00:00Z'
+  return `${dateStr}${time}`
 }
 
 export const getCalendarEvents = createTool({
   description: 'Get upcoming calendar events from Google Calendar',
   args: z.object({
-    startDate: z.string().optional().describe('Start date in ISO format (defaults to now)'),
-    endDate: z.string().optional().describe('End date in ISO format (defaults to 7 days from now)'),
+    startDate: z
+      .string()
+      .optional()
+      .describe('Start date (YYYY-MM-DD or ISO datetime, defaults to now)'),
+    endDate: z
+      .string()
+      .optional()
+      .describe('End date (YYYY-MM-DD or ISO datetime, defaults to 7 days from now)'),
     query: z.string().optional().describe('Search query to filter events'),
   }),
   handler: async (ctx, args) => {
@@ -53,8 +83,10 @@ export const getCalendarEvents = createTool({
     }
 
     const now = new Date()
-    const timeMin = args.startDate || now.toISOString()
-    const timeMax = args.endDate || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    const timeMin = args.startDate ? toISODateTime(args.startDate, false) : now.toISOString()
+    const timeMax = args.endDate
+      ? toISODateTime(args.endDate, true)
+      : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
     try {
       const response = (await ctx.runAction(internal.arlo.calendarActions.getEvents, {
@@ -120,6 +152,7 @@ export const createCalendarEvent = createTool({
         description: args.description,
         location: args.location,
         attendees: args.attendees,
+        timezone: result.timezone,
       })) as { eventId: string }
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {
@@ -172,6 +205,7 @@ export const updateCalendarEvent = createTool({
         endTime: args.endTime,
         description: args.description,
         location: args.location,
+        timezone: result.timezone,
       })
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {

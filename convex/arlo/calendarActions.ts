@@ -5,6 +5,9 @@ import { internalAction } from '../_generated/server'
 import { getNangoClient } from '../lib/nango'
 import { GOOGLE_CALENDAR_PROVIDER } from '../lib/integrationConstants'
 
+// Fallback timezone if user hasn't set one
+const DEFAULT_TIMEZONE = 'America/New_York'
+
 // Get calendar events
 export const getEvents = internalAction({
   args: {
@@ -71,9 +74,11 @@ export const createEvent = internalAction({
     description: v.optional(v.string()),
     location: v.optional(v.string()),
     attendees: v.optional(v.array(v.string())),
+    timezone: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
+    const tz = args.timezone || DEFAULT_TIMEZONE
 
     const response = await nango.proxy({
       method: 'POST',
@@ -82,8 +87,8 @@ export const createEvent = internalAction({
       providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
       data: {
         summary: args.title,
-        start: { dateTime: args.startTime },
-        end: { dateTime: args.endTime },
+        start: { dateTime: args.startTime, timeZone: tz },
+        end: { dateTime: args.endTime, timeZone: tz },
         description: args.description,
         location: args.location,
         attendees: args.attendees?.map((email) => ({ email })),
@@ -106,14 +111,16 @@ export const updateEvent = internalAction({
     endTime: v.optional(v.string()),
     description: v.optional(v.string()),
     location: v.optional(v.string()),
+    timezone: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
+    const tz = args.timezone || DEFAULT_TIMEZONE
 
     const updateData: Record<string, unknown> = {}
     if (args.title) updateData.summary = args.title
-    if (args.startTime) updateData.start = { dateTime: args.startTime }
-    if (args.endTime) updateData.end = { dateTime: args.endTime }
+    if (args.startTime) updateData.start = { dateTime: args.startTime, timeZone: tz }
+    if (args.endTime) updateData.end = { dateTime: args.endTime, timeZone: tz }
     if (args.description) updateData.description = args.description
     if (args.location) updateData.location = args.location
 
