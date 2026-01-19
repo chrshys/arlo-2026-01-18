@@ -82,6 +82,11 @@ export function DraggableNoteRow({ noteId, title, isSelected, onSelect }: Dragga
     onSelect(noteId)
   }
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingNoteId(noteId)
+  }
+
   if (isEditing) {
     return (
       <div
@@ -131,7 +136,9 @@ export function DraggableNoteRow({ noteId, title, isSelected, onSelect }: Dragga
         <GripVertical className="h-4 w-4 text-muted-foreground/50" />
       </div>
       <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate">{title || 'Untitled'}</span>
+      <span onDoubleClick={handleDoubleClick} className="flex-1 truncate">
+        {title || 'Untitled'}
+      </span>
     </div>
   )
 }

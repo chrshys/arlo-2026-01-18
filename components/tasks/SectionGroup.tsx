@@ -250,7 +250,14 @@ export function SectionGroup({
                 className="flex-1 text-sm font-medium bg-transparent border-b border-primary outline-none"
               />
             ) : (
-              <span>{sectionName}</span>
+              <span
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  setIsEditing(true)
+                }}
+              >
+                {sectionName}
+              </span>
             )}
           </button>
 

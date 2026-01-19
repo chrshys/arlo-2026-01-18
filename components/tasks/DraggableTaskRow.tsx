@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Circle, CheckCircle2, Flag, Bell } from 'lucide-react'
@@ -69,6 +70,49 @@ export function DraggableTaskRow({
   const { activeId } = useUnifiedDrag()
   const completeTask = useMutation(api.tasks.completeFromUI)
   const reopenTask = useMutation(api.tasks.reopen)
+  const updateTask = useMutation(api.tasks.update)
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTitle, setEditedTitle] = useState(title)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  // Sync editedTitle when title prop changes (and not editing)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedTitle(title)
+    }
+  }, [title, isEditing])
+
+  const handleSave = async () => {
+    const trimmedTitle = editedTitle.trim() || 'Untitled'
+    if (trimmedTitle !== title) {
+      await updateTask({ id: taskId, title: trimmedTitle })
+    }
+    setIsEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
+    } else if (e.key === 'Escape') {
+      setEditedTitle(title)
+      setIsEditing(false)
+    }
+  }
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsEditing(true)
+  }
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
     useSortable({
@@ -135,7 +179,25 @@ export function DraggableTaskRow({
         {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
       </button>
 
-      <span className={cn('flex-1 truncate', isCompleted && 'line-through')}>{title}</span>
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editedTitle}
+          onChange={(e) => setEditedTitle(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          className="flex-1 bg-transparent outline-none border-b border-primary"
+        />
+      ) : (
+        <span
+          onDoubleClick={handleDoubleClick}
+          className={cn('flex-1 truncate', isCompleted && 'line-through')}
+        >
+          {title}
+        </span>
+      )}
 
       {reminders && reminders.length > 0 && (
         <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

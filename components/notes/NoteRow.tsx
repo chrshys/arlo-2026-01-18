@@ -83,6 +83,11 @@ export function NoteRow({ noteId, title, isSelected, onSelect }: NoteRowProps) {
     )
   }
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingNoteId(noteId)
+  }
+
   return (
     <div
       onClick={() => onSelect(noteId)}
@@ -93,7 +98,9 @@ export function NoteRow({ noteId, title, isSelected, onSelect }: NoteRowProps) {
       )}
     >
       <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate">{title || 'Untitled'}</span>
+      <span onDoubleClick={handleDoubleClick} className="flex-1 truncate">
+        {title || 'Untitled'}
+      </span>
     </div>
   )
 }

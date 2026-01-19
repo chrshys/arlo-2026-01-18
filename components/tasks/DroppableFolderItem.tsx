@@ -204,9 +204,13 @@ export function DroppableFolderItem({
               />
             </button>
 
-            {/* Name - select folder */}
+            {/* Name - select folder, double-click to rename */}
             <button
               onClick={() => onSelect?.(folderId)}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                setIsEditing(true)
+              }}
               className="flex items-center gap-2 flex-1 min-w-0"
             >
               <span className="flex-1 text-left truncate font-medium">{name}</span>
