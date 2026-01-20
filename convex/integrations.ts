@@ -141,3 +141,45 @@ export const getByUserIdAndProvider = internalQuery({
       .first()
   },
 })
+
+// Mutation: Toggle a calendar on/off for Google Calendar integration
+export const setCalendarEnabled = mutation({
+  args: {
+    calendarId: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+
+    const integration = await ctx.db
+      .query('integrations')
+      .withIndex('by_user_and_provider', (q) =>
+        q.eq('userId', user._id).eq('provider', GOOGLE_CALENDAR_PROVIDER)
+      )
+      .first()
+
+    if (!integration) {
+      throw new Error('Google Calendar not connected')
+    }
+
+    // Get current enabled calendars (default to primary only)
+    const currentEnabled = integration.enabledCalendarIds || ['primary']
+
+    let newEnabled: string[]
+    if (args.enabled) {
+      // Add calendar if not already present
+      newEnabled = currentEnabled.includes(args.calendarId)
+        ? currentEnabled
+        : [...currentEnabled, args.calendarId]
+    } else {
+      // Remove calendar
+      newEnabled = currentEnabled.filter((id) => id !== args.calendarId)
+    }
+
+    await ctx.db.patch(integration._id, {
+      enabledCalendarIds: newEnabled,
+    })
+
+    return { enabledCalendarIds: newEnabled }
+  },
+})
