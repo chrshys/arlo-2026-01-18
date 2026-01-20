@@ -52,6 +52,7 @@ const getEvents = calendarActions.getEvents as unknown as MockedAction<
 const createEvent = calendarActions.createEvent as unknown as MockedAction<
   {
     nangoConnectionId: string
+    calendarId?: string
     title: string
     startTime: string
     endTime: string

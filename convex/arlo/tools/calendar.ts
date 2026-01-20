@@ -155,9 +155,23 @@ export const createCalendarEvent = createTool({
       return { eventId: null, error: result.error }
     }
 
+    // Get enabled calendars (default to primary only)
+    const enabledIds = result.integration.enabledCalendarIds || ['primary']
+
+    if (enabledIds.length === 0) {
+      return {
+        eventId: null,
+        error: 'No calendars enabled. Enable at least one calendar in Settings → Integrations.',
+      }
+    }
+
+    // Use primary if enabled, otherwise first enabled calendar
+    const targetCalendar = enabledIds.includes('primary') ? 'primary' : enabledIds[0]
+
     try {
       const response = (await ctx.runAction(internal.arlo.calendarActions.createEvent, {
         nangoConnectionId: result.integration.nangoConnectionId,
+        calendarId: targetCalendar,
         title: args.title,
         startTime: args.startTime,
         endTime: args.endTime,

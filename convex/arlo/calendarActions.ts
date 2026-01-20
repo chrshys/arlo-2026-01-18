@@ -137,10 +137,11 @@ export const getEvents = internalAction({
   },
 })
 
-// Create calendar event
+// Create calendar event on specified calendar
 export const createEvent = internalAction({
   args: {
     nangoConnectionId: v.string(),
+    calendarId: v.optional(v.string()),
     title: v.string(),
     startTime: v.string(),
     endTime: v.string(),
@@ -152,10 +153,11 @@ export const createEvent = internalAction({
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
     const tz = args.timezone || DEFAULT_TIMEZONE
+    const targetCalendar = args.calendarId || 'primary'
 
     const response = await nango.proxy({
       method: 'POST',
-      endpoint: '/calendar/v3/calendars/primary/events',
+      endpoint: `/calendar/v3/calendars/${encodeURIComponent(targetCalendar)}/events`,
       connectionId: args.nangoConnectionId,
       providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
       data: {
