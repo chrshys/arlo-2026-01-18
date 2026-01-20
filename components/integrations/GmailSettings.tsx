@@ -44,7 +44,7 @@ const PERMISSION_LEVELS: {
 ]
 
 export function GmailSettings({ isConnected }: GmailSettingsProps) {
-  const integration = useQuery(api.integrations.getByProvider, { provider: 'gmail' })
+  const integration = useQuery(api.integrations.getByProvider, { provider: 'google-mail' })
   const setGmailSettings = useMutation(api.integrations.setGmailSettings)
 
   const [isExpanded, setIsExpanded] = useState(false)

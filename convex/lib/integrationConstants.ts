@@ -7,7 +7,7 @@ export const GOOGLE_CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ]
 
-export const GMAIL_PROVIDER = 'gmail'
+export const GMAIL_PROVIDER = 'google-mail'
 
 // Scopes for each permission level
 export const GMAIL_SCOPES_READ = ['https://www.googleapis.com/auth/gmail.readonly']

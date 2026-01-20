@@ -12,7 +12,7 @@ const AVAILABLE_INTEGRATIONS = [
     icon: '📅',
   },
   {
-    provider: 'gmail',
+    provider: 'google-mail',
     name: 'Gmail',
     description: 'Search, read, and send emails',
     icon: '✉️',

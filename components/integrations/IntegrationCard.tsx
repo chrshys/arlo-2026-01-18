@@ -26,7 +26,7 @@ export function IntegrationCard({
   const isConnected = status === 'connected'
   const needsReconnect = status === 'expired' || status === 'revoked'
   const isGoogleCalendar = provider === 'google-calendar'
-  const isGmail = provider === 'gmail'
+  const isGmail = provider === 'google-mail'
 
   return (
     <div className="rounded-lg border border-border p-4">
