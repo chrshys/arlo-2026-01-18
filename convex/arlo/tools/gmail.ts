@@ -814,3 +814,81 @@ export const deleteGmailLabel = createTool({
     }
   },
 })
+
+export const createTaskFromEmail = createTool({
+  description: 'Create a task from an email, linking back to the email for reference',
+  args: z.object({
+    emailId: z.string().describe('Email ID to create task from'),
+    taskTitle: z.string().describe('Title for the task'),
+    taskDescription: z.string().optional().describe('Additional task description'),
+    priority: z.enum(['none', 'low', 'medium', 'high']).optional().describe('Task priority'),
+    dueDate: z.string().optional().describe('Due date (YYYY-MM-DD)'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read')
+
+    if ('error' in result) {
+      return { taskId: null, error: result.error }
+    }
+
+    try {
+      // Get email details for context
+      const emailResponse = (await ctx.runAction(internal.arlo.gmailActions.getMessage, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        messageId: args.emailId,
+      })) as {
+        message: {
+          id: string
+          subject: string
+          from: { name?: string; email: string }
+          snippet: string
+        }
+      }
+
+      const email = emailResponse.message
+      const fromStr = email.from.name
+        ? `${email.from.name} <${email.from.email}>`
+        : email.from.email
+
+      // Build description with email reference
+      const description = [
+        args.taskDescription,
+        '',
+        '---',
+        `**From email:** "${email.subject}"`,
+        `**From:** ${fromStr}`,
+        `**Email ID:** ${email.id}`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      // Create the task
+      const taskId = (await ctx.runMutation(internal.tasks.create, {
+        userId,
+        title: args.taskTitle,
+        description,
+        priority: args.priority || 'none',
+        dueDate: args.dueDate ? new Date(args.dueDate).getTime() : undefined,
+        createdBy: 'arlo',
+      })) as Id<'tasks'>
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'create_task_from_email',
+        actor: 'arlo',
+        outcome: 'success',
+        targetId: taskId,
+        details: `Created task "${args.taskTitle}" from email "${email.subject}"`,
+      })
+
+      return {
+        taskId,
+        message: `Created task "${args.taskTitle}" from email`,
+      }
+    } catch (error) {
+      console.error('Failed to create task from email:', error)
+      return { taskId: null, error: 'Failed to create task from email' }
+    }
+  },
+})
