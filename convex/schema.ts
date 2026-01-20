@@ -114,6 +114,7 @@ export default defineSchema({
     scopes: v.array(v.string()),
     connectedAt: v.number(),
     lastUsedAt: v.optional(v.number()),
+    enabledCalendarIds: v.optional(v.array(v.string())),
   })
     .index('by_user', ['userId'])
     .index('by_user_and_provider', ['userId', 'provider'])
