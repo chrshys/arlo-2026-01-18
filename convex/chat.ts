@@ -4,6 +4,7 @@ import { saveMessage } from '@convex-dev/agent'
 import { components, internal } from './_generated/api'
 import { arlo } from './arlo/agent'
 import { requireCurrentUser } from './lib/auth'
+import { buildSystemPrompt } from './arlo/systemPrompt'
 
 // User sends a message
 export const send = mutation({
@@ -47,6 +48,12 @@ export const generateResponse = internalAction({
     userId: v.id('users'),
   },
   handler: async (ctx, { threadId, promptMessageId, userId }) => {
-    await arlo.generateText(ctx, { userId, threadId }, { promptMessageId })
+    // Get user's timezone for date/time context
+    const timezone = await ctx.runQuery(internal.users.getTimezone, { userId })
+
+    // Build system prompt with current date/time
+    const system = buildSystemPrompt(timezone)
+
+    await arlo.generateText(ctx, { userId, threadId }, { promptMessageId, system })
   },
 })
