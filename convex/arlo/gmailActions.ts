@@ -381,3 +381,168 @@ export const deleteDraft = internalAction({
     return { success: true }
   },
 })
+
+// Types for labels
+interface GmailLabel {
+  id: string
+  name: string
+  type: 'system' | 'user'
+  messageListVisibility?: 'show' | 'hide'
+  labelListVisibility?: 'labelShow' | 'labelShowIfUnread' | 'labelHide'
+}
+
+// List all labels
+export const listLabels = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const response = await nango.proxy({
+      method: 'GET',
+      endpoint: '/gmail/v1/users/me/labels',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+    })
+
+    const data = response.data as { labels: GmailLabel[] }
+    return {
+      labels: data.labels.map((l) => ({
+        id: l.id,
+        name: l.name,
+        type: l.type,
+      })),
+    }
+  },
+})
+
+// Create a custom label
+export const createLabel = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    name: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const response = await nango.proxy({
+      method: 'POST',
+      endpoint: '/gmail/v1/users/me/labels',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        name: args.name,
+        labelListVisibility: 'labelShow',
+        messageListVisibility: 'show',
+      },
+    })
+
+    const label = response.data as GmailLabel
+    return {
+      id: label.id,
+      name: label.name,
+    }
+  },
+})
+
+// Update a label
+export const updateLabel = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    labelId: v.string(),
+    name: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const response = await nango.proxy({
+      method: 'PATCH',
+      endpoint: `/gmail/v1/users/me/labels/${args.labelId}`,
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        name: args.name,
+      },
+    })
+
+    const label = response.data as GmailLabel
+    return {
+      id: label.id,
+      name: label.name,
+    }
+  },
+})
+
+// Delete a label
+export const deleteLabel = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    labelId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    await nango.proxy({
+      method: 'DELETE',
+      endpoint: `/gmail/v1/users/me/labels/${args.labelId}`,
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+    })
+
+    return { success: true }
+  },
+})
+
+// Modify labels on a message
+export const modifyMessageLabels = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    messageId: v.string(),
+    addLabelIds: v.optional(v.array(v.string())),
+    removeLabelIds: v.optional(v.array(v.string())),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    await nango.proxy({
+      method: 'POST',
+      endpoint: `/gmail/v1/users/me/messages/${args.messageId}/modify`,
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        addLabelIds: args.addLabelIds || [],
+        removeLabelIds: args.removeLabelIds || [],
+      },
+    })
+
+    return { success: true }
+  },
+})
+
+// Batch modify labels on multiple messages
+export const batchModifyLabels = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    messageIds: v.array(v.string()),
+    addLabelIds: v.optional(v.array(v.string())),
+    removeLabelIds: v.optional(v.array(v.string())),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    await nango.proxy({
+      method: 'POST',
+      endpoint: '/gmail/v1/users/me/messages/batchModify',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        ids: args.messageIds,
+        addLabelIds: args.addLabelIds || [],
+        removeLabelIds: args.removeLabelIds || [],
+      },
+    })
+
+    return { success: true }
+  },
+})
