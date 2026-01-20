@@ -566,7 +566,7 @@ describe('Calendar Actions', () => {
       expect(result).toEqual({ available: true, conflictCount: 0 })
     })
 
-    it('should return unavailable with conflict count across all calendars', async () => {
+    it('should return unavailable with conflict count across enabled calendars', async () => {
       mockNangoProxy
         .mockResolvedValueOnce({
           data: {
@@ -589,6 +589,7 @@ describe('Calendar Actions', () => {
           nangoConnectionId: 'conn_123',
           startTime: '2024-01-15T10:00:00Z',
           endTime: '2024-01-15T11:00:00Z',
+          enabledCalendarIds: ['primary', 'family'], // Enable both calendars
         }
       )
 

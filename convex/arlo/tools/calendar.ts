@@ -309,6 +309,7 @@ export const checkCalendarAvailability = createTool({
         nangoConnectionId: result.integration.nangoConnectionId,
         startTime: args.startTime,
         endTime: args.endTime,
+        enabledCalendarIds: result.integration.enabledCalendarIds,
       })) as { available: boolean; conflictCount: number }
 
       await ctx.runMutation(internal.integrations.updateLastUsed, {

@@ -229,15 +229,19 @@ export const deleteEvent = internalAction({
   },
 })
 
-// Check availability across ALL calendars
+// Check availability across enabled calendars only
 export const checkAvailability = internalAction({
   args: {
     nangoConnectionId: v.string(),
     startTime: v.string(),
     endTime: v.string(),
+    enabledCalendarIds: v.optional(v.array(v.string())),
   },
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
+
+    // Get enabled calendar IDs (default to primary only)
+    const enabledIds = args.enabledCalendarIds || ['primary']
 
     // First, get all calendars
     const calendarListResponse = await nango.proxy({
@@ -247,9 +251,12 @@ export const checkAvailability = internalAction({
       providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
     })
 
-    const calendars = (calendarListResponse.data as { items?: GoogleCalendar[] }).items || []
+    const allCalendars = (calendarListResponse.data as { items?: GoogleCalendar[] }).items || []
 
-    // Check events on all calendars in parallel
+    // Filter to only enabled calendars
+    const calendars = allCalendars.filter((cal) => enabledIds.includes(cal.id))
+
+    // Check events on enabled calendars in parallel
     const eventPromises = calendars.map(async (calendar) => {
       try {
         const response = await nango.proxy({
