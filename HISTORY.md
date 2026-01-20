@@ -23,7 +23,8 @@ This file captures summaries of development sessions, key decisions made, and ar
 - **Conversation list** — thread switching, explicit new conversation, auto-generated titles
 - **Task depth** — full task management system (see below)
 - **Clerk authentication** — multi-user support with full data isolation (see below)
-- **Nango integrations** — OAuth integration framework with Google Calendar (see below)
+- **Nango integrations** — OAuth integration framework with Google Calendar
+- **Date/time awareness** — Arlo knows current date/time via dynamic system prompt
 
 **Task Depth Features:**
 
@@ -1771,3 +1772,43 @@ Created `docs/onboarding-notes.md` capturing items for future onboarding:
 - Data structure for storing onboarding state
 
 **Result:** Calendar event creation now works. Users can configure their timezone in Settings → Account. Playbook and onboarding notes documented for future development.
+
+---
+
+### 2026-01-20 — Date/Time Context Injection
+
+**Focus:** Give Arlo awareness of the current date and time, similar to clawdbot's implementation.
+
+**Problem:** Arlo had no concept of "today" or "now" — it couldn't answer questions like "what day is it?" or reason about relative dates contextually.
+
+**Solution:** Inject current date/time into system prompt at generation time.
+
+**Implementation Pattern (from clawdbot):**
+
+1. Format current time using user's timezone
+2. Build system prompt dynamically with date section
+3. Pass to `generateText` via `system` parameter (overrides static Agent instructions)
+
+**Files Created:**
+
+| File                          | Purpose                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `convex/lib/dateTime.ts`      | `formatUserTime()` — formats date like "Monday, January 20th, 2026 at 2:30 PM" |
+| `convex/arlo/systemPrompt.ts` | `buildSystemPrompt()` — constructs full prompt with date context               |
+
+**Files Modified:**
+
+| File             | Changes                                                    |
+| ---------------- | ---------------------------------------------------------- |
+| `convex/chat.ts` | Fetch timezone, build dynamic prompt, pass to generateText |
+
+**System Prompt Now Includes:**
+
+```
+## Current Date & Time
+Monday, January 20th, 2026 at 2:30 PM (America/New_York)
+```
+
+**Key Detail:** The Convex Agent `generateText` accepts a `system` parameter that overrides the Agent's static `instructions`. This allows injecting fresh context on each message without changing the Agent definition.
+
+**Result:** Arlo now knows the current date/time based on user's configured timezone.
