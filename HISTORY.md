@@ -54,7 +54,8 @@ This file captures summaries of development sessions, key decisions made, and ar
 - Integrations settings page at `/settings/integrations`
 - Connection status tracking (active, expired, revoked)
 - Webhook handler for token refresh errors and revocations
-- 5 Arlo calendar tools: getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCalendarAvailability
+- 6 Arlo calendar tools: getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCalendarAvailability, listAccessibleCalendars
+- Calendar selector UI to control which calendars Arlo can access
 
 **User Settings:**
 
@@ -1812,3 +1813,95 @@ Monday, January 20th, 2026 at 2:30 PM (America/New_York)
 **Key Detail:** The Convex Agent `generateText` accepts a `system` parameter that overrides the Agent's static `instructions`. This allows injecting fresh context on each message without changing the Agent definition.
 
 **Result:** Arlo now knows the current date/time based on user's configured timezone.
+
+---
+
+### 2026-01-20 (continued) — Calendar Selector Implementation
+
+**Focus:** Allow users to select which Google Calendars Arlo can access, and give Arlo the ability to list accessible calendars.
+
+**Branch:** `feature/calendar-selector`
+
+**Activities:**
+
+1. Added `enabledCalendarIds` field to integrations schema
+2. Created `fetchCalendars` action to retrieve available calendars from Google
+3. Created `setCalendarEnabled` mutation to toggle individual calendars
+4. Updated calendar tools to filter by enabled calendars
+5. Built CalendarSelector UI component with collapsible card-style interface
+6. Added `listAccessibleCalendars` tool for Arlo
+
+**Schema Changes:**
+
+```typescript
+// convex/schema.ts - integrations table
+enabledCalendarIds: v.optional(v.array(v.string())),
+```
+
+**Files Created:**
+
+| File                                                        | Purpose                                                 |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| `components/integrations/CalendarSelector.tsx`              | Collapsible calendar selection UI with card-style items |
+| `docs/plans/2026-01-20-calendar-selector-implementation.md` | Implementation plan                                     |
+| `docs/plans/2026-01-20-calendar-selector-design.md`         | Design document                                         |
+
+**Files Modified:**
+
+| File                                          | Changes                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `convex/schema.ts`                            | Added `enabledCalendarIds` to integrations table                                 |
+| `convex/integrationsNode.ts`                  | Added `fetchCalendars` action                                                    |
+| `convex/integrations.ts`                      | Added `setCalendarEnabled` mutation                                              |
+| `convex/arlo/calendarActions.ts`              | Filter `getEvents`, `checkAvailability`, `createEvent` by enabled calendars      |
+| `convex/arlo/tools/calendar.ts`               | Pass `enabledCalendarIds` from integration, added `listAccessibleCalendars` tool |
+| `convex/arlo/agent.ts`                        | Registered `listAccessibleCalendars` tool, updated instructions                  |
+| `components/integrations/IntegrationCard.tsx` | Integrated CalendarSelector for Google Calendar                                  |
+| `__tests__/calendar-actions.test.ts`          | Updated tests for enabledCalendarIds filtering                                   |
+
+**Calendar Filtering Logic:**
+
+- Default: `['primary']` if `enabledCalendarIds` is undefined
+- `getEvents`: Fetches from all enabled calendars, merges and sorts results
+- `checkAvailability`: Checks conflicts across all enabled calendars
+- `createEvent`: Creates on primary if enabled, otherwise first enabled calendar
+
+**CalendarSelector UI Features:**
+
+- Collapsible section with chevron toggle
+- Summary badge showing "X of Y enabled"
+- Card-style calendar items with border highlight when enabled
+- Calendar icon and "Primary" badge for primary calendar
+- Sorted: primary first, then alphabetically
+- Optimistic updates with rollback on error
+
+**listAccessibleCalendars Tool:**
+
+Arlo can now explicitly check which calendars it has access to, regardless of whether they have events. Previously, Arlo could only infer access from event results.
+
+```typescript
+export const listAccessibleCalendars = createTool({
+  description: 'List all Google Calendars you have access to...',
+  args: z.object({}),
+  handler: async (ctx) => {
+    // Returns enabled calendars from user's integration
+  },
+})
+```
+
+**Commits:**
+
+```
+8cff72e feat(schema): add enabledCalendarIds to integrations table
+65f0818 feat(integrations): add fetchCalendars action
+ebb543d feat(integrations): add setCalendarEnabled mutation
+cdc963e feat(calendar): filter getEvents by enabled calendars
+e4b60bf feat(calendar): filter checkAvailability by enabled calendars
+e2329ea feat(calendar): create events on enabled calendar
+0cf4041 feat(ui): add CalendarSelector component
+ebe873e feat(ui): integrate CalendarSelector into IntegrationCard
+79ef297 feat(ui): improve CalendarSelector with collapsible section and card styling
+7a09f6e feat(calendar): add listAccessibleCalendars tool for Arlo
+```
+
+**Result:** Users can now control which Google Calendars Arlo can access via Settings → Integrations. Arlo can list its accessible calendars and all calendar operations respect the enabled calendars setting.
