@@ -353,3 +353,55 @@ export const checkCalendarAvailability = createTool({
     }
   },
 })
+
+export const listAccessibleCalendars = createTool({
+  description:
+    'List all Google Calendars you have access to. Use this to see which calendars are enabled, regardless of whether they have events.',
+  args: z.object({}),
+  handler: async (ctx) => {
+    const userId = getUserId(ctx)
+    const result = await getCalendarConnection(ctx, userId)
+
+    if ('error' in result) {
+      return { calendars: [], error: result.error }
+    }
+
+    try {
+      const response = (await ctx.runAction(internal.arlo.calendarActions.listCalendars, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+      })) as {
+        calendars: Array<{
+          id: string
+          name: string
+          primary: boolean
+          accessRole: string
+        }>
+      }
+
+      // Get enabled calendar IDs (default to primary only)
+      const enabledIds = result.integration.enabledCalendarIds || ['primary']
+
+      // Filter to only enabled calendars and mark which are enabled
+      const accessibleCalendars = response.calendars
+        .filter((cal) => enabledIds.includes(cal.id))
+        .map((cal) => ({
+          id: cal.id,
+          name: cal.name,
+          primary: cal.primary,
+          accessRole: cal.accessRole,
+        }))
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        calendars: accessibleCalendars,
+        message: `You have access to ${accessibleCalendars.length} calendar(s)`,
+      }
+    } catch (error) {
+      console.error('Failed to list calendars:', error)
+      return { calendars: [], error: 'Failed to list accessible calendars' }
+    }
+  },
+})

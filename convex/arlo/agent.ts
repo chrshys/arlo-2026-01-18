@@ -20,6 +20,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   checkCalendarAvailability,
+  listAccessibleCalendars,
 } from './tools/calendar'
 
 const gateway = createGateway({
@@ -43,6 +44,7 @@ You can also manage notes:
 - Update note content
 
 You have access to Google Calendar (if the user has connected it):
+- List which calendars you have access to (use this to confirm your access)
 - Get upcoming calendar events
 - Create new calendar events
 - Update or delete existing events
@@ -90,6 +92,7 @@ When they mention personal items, check for Personal projects.`,
     listNotes,
     updateNote,
     // Calendar tools
+    listAccessibleCalendars,
     getCalendarEvents,
     createCalendarEvent,
     updateCalendarEvent,
