@@ -2,6 +2,7 @@
 
 import { NangoConnectButton } from './NangoConnectButton'
 import { CalendarSelector } from './CalendarSelector'
+import { GmailSettings } from './GmailSettings'
 
 interface IntegrationCardProps {
   provider: string
@@ -25,6 +26,7 @@ export function IntegrationCard({
   const isConnected = status === 'connected'
   const needsReconnect = status === 'expired' || status === 'revoked'
   const isGoogleCalendar = provider === 'google-calendar'
+  const isGmail = provider === 'gmail'
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -65,6 +67,7 @@ export function IntegrationCard({
       </div>
 
       {isGoogleCalendar && <CalendarSelector isConnected={isConnected} />}
+      {isGmail && <GmailSettings isConnected={isConnected} />}
     </div>
   )
 }
