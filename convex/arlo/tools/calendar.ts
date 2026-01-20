@@ -15,7 +15,12 @@ export function getUserId(ctx: { userId?: string }): Id<'users'> {
 export type CalendarConnectionResult =
   | { error: string }
   | {
-      integration: { _id: Id<'integrations'>; nangoConnectionId: string; status: string }
+      integration: {
+        _id: Id<'integrations'>
+        nangoConnectionId: string
+        status: string
+        enabledCalendarIds?: string[]
+      }
       timezone: string
     }
 
@@ -33,6 +38,7 @@ export async function getCalendarConnection(
       _id: Id<'integrations'>
       nangoConnectionId: string
       status: string
+      enabledCalendarIds?: string[]
     } | null>,
     ctx.runQuery(internal.users.getTimezone, { userId }) as Promise<string>,
   ])
@@ -97,6 +103,7 @@ export const getCalendarEvents = createTool({
         timeMin,
         timeMax,
         query: args.query,
+        enabledCalendarIds: result.integration.enabledCalendarIds,
       })) as {
         events: Array<{
           id: string
@@ -105,6 +112,8 @@ export const getCalendarEvents = createTool({
           end: string | undefined
           location: string | undefined
           description: string | undefined
+          calendarId: string
+          calendarName: string
         }>
       }
 

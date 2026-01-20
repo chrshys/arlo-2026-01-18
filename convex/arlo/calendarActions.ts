@@ -8,16 +8,80 @@ import { GOOGLE_CALENDAR_PROVIDER } from '../lib/integrationConstants'
 // Fallback timezone if user hasn't set one
 const DEFAULT_TIMEZONE = 'America/New_York'
 
-// Get calendar events
+// Calendar type from Google Calendar API
+interface GoogleCalendar {
+  id: string
+  summary: string
+  primary?: boolean
+  accessRole: string
+  backgroundColor?: string
+}
+
+// List all calendars the user has access to
+export const listCalendars = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const response = await nango.proxy({
+      method: 'GET',
+      endpoint: '/calendar/v3/users/me/calendarList',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
+    })
+
+    const calendars = (response.data as { items?: GoogleCalendar[] }).items || []
+
+    return {
+      calendars: calendars.map((c) => ({
+        id: c.id,
+        name: c.summary,
+        primary: c.primary || false,
+        accessRole: c.accessRole,
+      })),
+    }
+  },
+})
+
+// Event type from Google Calendar API
+interface GoogleEvent {
+  id: string
+  summary: string
+  start: { dateTime?: string; date?: string }
+  end: { dateTime?: string; date?: string }
+  location?: string
+  description?: string
+}
+
+// Get calendar events from enabled calendars only
 export const getEvents = internalAction({
   args: {
     nangoConnectionId: v.string(),
     timeMin: v.string(),
     timeMax: v.string(),
     query: v.optional(v.string()),
+    enabledCalendarIds: v.optional(v.array(v.string())),
   },
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
+
+    // Get enabled calendar IDs (default to primary only)
+    const enabledIds = args.enabledCalendarIds || ['primary']
+
+    // First, get all calendars
+    const calendarListResponse = await nango.proxy({
+      method: 'GET',
+      endpoint: '/calendar/v3/users/me/calendarList',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
+    })
+
+    const allCalendars = (calendarListResponse.data as { items?: GoogleCalendar[] }).items || []
+
+    // Filter to only enabled calendars
+    const calendars = allCalendars.filter((cal) => enabledIds.includes(cal.id))
 
     const params: Record<string, string> = {
       timeMin: args.timeMin,
@@ -29,38 +93,47 @@ export const getEvents = internalAction({
       params.q = args.query
     }
 
-    const response = await nango.proxy({
-      method: 'GET',
-      endpoint: '/calendar/v3/calendars/primary/events',
-      connectionId: args.nangoConnectionId,
-      providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-      params,
+    // Query events from all calendars in parallel
+    const eventPromises = calendars.map(async (calendar) => {
+      try {
+        const response = await nango.proxy({
+          method: 'GET',
+          endpoint: `/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`,
+          connectionId: args.nangoConnectionId,
+          providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
+          params,
+        })
+
+        const events = (response.data as { items?: GoogleEvent[] }).items || []
+
+        return events.map((e) => ({
+          id: e.id,
+          title: e.summary,
+          start: e.start.dateTime || e.start.date,
+          end: e.end.dateTime || e.end.date,
+          location: e.location,
+          description: e.description,
+          calendarId: calendar.id,
+          calendarName: calendar.summary,
+        }))
+      } catch (error) {
+        // If we can't access a calendar, skip it rather than failing entirely
+        console.warn(`Failed to fetch events from calendar ${calendar.id}:`, error)
+        return []
+      }
     })
 
-    const events =
-      (
-        response.data as {
-          items?: Array<{
-            id: string
-            summary: string
-            start: { dateTime?: string; date?: string }
-            end: { dateTime?: string; date?: string }
-            location?: string
-            description?: string
-          }>
-        }
-      ).items || []
+    const allEventsArrays = await Promise.all(eventPromises)
+    const allEvents = allEventsArrays.flat()
 
-    return {
-      events: events.map((e) => ({
-        id: e.id,
-        title: e.summary,
-        start: e.start.dateTime || e.start.date,
-        end: e.end.dateTime || e.end.date,
-        location: e.location,
-        description: e.description,
-      })),
-    }
+    // Sort by start time
+    allEvents.sort((a, b) => {
+      const aStart = a.start || ''
+      const bStart = b.start || ''
+      return aStart.localeCompare(bStart)
+    })
+
+    return { events: allEvents }
   },
 })
 
@@ -156,7 +229,7 @@ export const deleteEvent = internalAction({
   },
 })
 
-// Check availability
+// Check availability across ALL calendars
 export const checkAvailability = internalAction({
   args: {
     nangoConnectionId: v.string(),
@@ -166,23 +239,44 @@ export const checkAvailability = internalAction({
   handler: async (_ctx, args) => {
     const nango = getNangoClient()
 
-    const response = await nango.proxy({
+    // First, get all calendars
+    const calendarListResponse = await nango.proxy({
       method: 'GET',
-      endpoint: '/calendar/v3/calendars/primary/events',
+      endpoint: '/calendar/v3/users/me/calendarList',
       connectionId: args.nangoConnectionId,
       providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
-      params: {
-        timeMin: args.startTime,
-        timeMax: args.endTime,
-        singleEvents: 'true',
-      },
     })
 
-    const events = (response.data as { items?: Array<unknown> }).items || []
+    const calendars = (calendarListResponse.data as { items?: GoogleCalendar[] }).items || []
+
+    // Check events on all calendars in parallel
+    const eventPromises = calendars.map(async (calendar) => {
+      try {
+        const response = await nango.proxy({
+          method: 'GET',
+          endpoint: `/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`,
+          connectionId: args.nangoConnectionId,
+          providerConfigKey: GOOGLE_CALENDAR_PROVIDER,
+          params: {
+            timeMin: args.startTime,
+            timeMax: args.endTime,
+            singleEvents: 'true',
+          },
+        })
+
+        return (response.data as { items?: Array<unknown> }).items || []
+      } catch (error) {
+        console.warn(`Failed to check calendar ${calendar.id}:`, error)
+        return []
+      }
+    })
+
+    const allEventsArrays = await Promise.all(eventPromises)
+    const totalConflicts = allEventsArrays.reduce((sum, events) => sum + events.length, 0)
 
     return {
-      available: events.length === 0,
-      conflictCount: events.length,
+      available: totalConflicts === 0,
+      conflictCount: totalConflicts,
     }
   },
 })

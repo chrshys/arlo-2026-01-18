@@ -28,7 +28,13 @@ type MockedAction<TArgs, TReturn> = {
 
 // Cast actions to access mocked handler
 const getEvents = calendarActions.getEvents as unknown as MockedAction<
-  { nangoConnectionId: string; timeMin: string; timeMax: string; query?: string },
+  {
+    nangoConnectionId: string
+    timeMin: string
+    timeMax: string
+    query?: string
+    enabledCalendarIds?: string[]
+  },
   {
     events: Array<{
       id: string
@@ -37,6 +43,8 @@ const getEvents = calendarActions.getEvents as unknown as MockedAction<
       end?: string
       location?: string
       description?: string
+      calendarId: string
+      calendarName: string
     }>
   }
 >
@@ -75,7 +83,7 @@ const deleteEvent = calendarActions.deleteEvent as unknown as MockedAction<
 >
 
 const checkAvailability = calendarActions.checkAvailability as unknown as MockedAction<
-  { nangoConnectionId: string; startTime: string; endTime: string },
+  { nangoConnectionId: string; startTime: string; endTime: string; enabledCalendarIds?: string[] },
   { available: boolean; conflictCount: number }
 >
 
@@ -91,21 +99,30 @@ describe('Calendar Actions', () => {
   })
 
   describe('getEvents', () => {
-    it('should call Nango proxy with correct parameters', async () => {
-      mockNangoProxy.mockResolvedValue({
-        data: {
-          items: [
-            {
-              id: 'event_1',
-              summary: 'Team Meeting',
-              start: { dateTime: '2024-01-15T10:00:00Z' },
-              end: { dateTime: '2024-01-15T11:00:00Z' },
-              location: 'Room A',
-              description: 'Weekly sync',
-            },
-          ],
-        },
-      })
+    it('should fetch events from all calendars', async () => {
+      // First call returns calendar list, second call returns events
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              { id: 'primary', summary: 'Primary Calendar', primary: true, accessRole: 'owner' },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                id: 'event_1',
+                summary: 'Team Meeting',
+                start: { dateTime: '2024-01-15T10:00:00Z' },
+                end: { dateTime: '2024-01-15T11:00:00Z' },
+                location: 'Room A',
+                description: 'Weekly sync',
+              },
+            ],
+          },
+        })
 
       const result = await getEvents.handler(
         {},
@@ -116,7 +133,16 @@ describe('Calendar Actions', () => {
         }
       )
 
-      expect(mockNangoProxy).toHaveBeenCalledWith({
+      // Should first call calendarList
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(1, {
+        method: 'GET',
+        endpoint: '/calendar/v3/users/me/calendarList',
+        connectionId: 'conn_123',
+        providerConfigKey: 'google-calendar',
+      })
+
+      // Then call events for each calendar
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(2, {
         method: 'GET',
         endpoint: '/calendar/v3/calendars/primary/events',
         connectionId: 'conn_123',
@@ -138,13 +164,21 @@ describe('Calendar Actions', () => {
             end: '2024-01-15T11:00:00Z',
             location: 'Room A',
             description: 'Weekly sync',
+            calendarId: 'primary',
+            calendarName: 'Primary Calendar',
           },
         ],
       })
     })
 
     it('should include query parameter when provided', async () => {
-      mockNangoProxy.mockResolvedValue({ data: { items: [] } })
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [{ id: 'primary', summary: 'Primary', primary: true, accessRole: 'owner' }],
+          },
+        })
+        .mockResolvedValueOnce({ data: { items: [] } })
 
       await getEvents.handler(
         {},
@@ -156,7 +190,9 @@ describe('Calendar Actions', () => {
         }
       )
 
-      expect(mockNangoProxy).toHaveBeenCalledWith(
+      // Second call (events) should include query param
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
           params: expect.objectContaining({ q: 'standup' }),
         })
@@ -164,18 +200,24 @@ describe('Calendar Actions', () => {
     })
 
     it('should handle all-day events (date without time)', async () => {
-      mockNangoProxy.mockResolvedValue({
-        data: {
-          items: [
-            {
-              id: 'event_1',
-              summary: 'Holiday',
-              start: { date: '2024-01-15' },
-              end: { date: '2024-01-16' },
-            },
-          ],
-        },
-      })
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [{ id: 'cal_1', summary: 'Holidays', primary: false, accessRole: 'reader' }],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                id: 'event_1',
+                summary: 'Holiday',
+                start: { date: '2024-01-15' },
+                end: { date: '2024-01-16' },
+              },
+            ],
+          },
+        })
 
       const result = await getEvents.handler(
         {},
@@ -183,6 +225,7 @@ describe('Calendar Actions', () => {
           nangoConnectionId: 'conn_123',
           timeMin: '2024-01-15T00:00:00Z',
           timeMax: '2024-01-15T23:59:59Z',
+          enabledCalendarIds: ['cal_1'], // Enable the holidays calendar
         }
       )
 
@@ -193,11 +236,13 @@ describe('Calendar Actions', () => {
         end: '2024-01-16',
         location: undefined,
         description: undefined,
+        calendarId: 'cal_1',
+        calendarName: 'Holidays',
       })
     })
 
     it('should return empty array when no events exist', async () => {
-      mockNangoProxy.mockResolvedValue({ data: {} })
+      mockNangoProxy.mockResolvedValueOnce({ data: { items: [] } }) // no calendars
 
       const result = await getEvents.handler(
         {},
@@ -209,6 +254,82 @@ describe('Calendar Actions', () => {
       )
 
       expect(result).toEqual({ events: [] })
+    })
+
+    it('should only query enabled calendars when enabledCalendarIds is provided', async () => {
+      // Return multiple calendars from the list
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              { id: 'primary', summary: 'Primary Calendar', primary: true, accessRole: 'owner' },
+              { id: 'work', summary: 'Work Calendar', primary: false, accessRole: 'owner' },
+              { id: 'family', summary: 'Family Calendar', primary: false, accessRole: 'owner' },
+            ],
+          },
+        })
+        // Only one calendar should be queried (primary)
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                id: 'event_1',
+                summary: 'Primary Event',
+                start: { dateTime: '2024-01-15T10:00:00Z' },
+                end: { dateTime: '2024-01-15T11:00:00Z' },
+              },
+            ],
+          },
+        })
+
+      const result = await getEvents.handler(
+        {},
+        {
+          nangoConnectionId: 'conn_123',
+          timeMin: '2024-01-15T00:00:00Z',
+          timeMax: '2024-01-15T23:59:59Z',
+          enabledCalendarIds: ['primary'], // Only primary enabled
+        }
+      )
+
+      // Should only make 2 calls: calendarList + events for primary only
+      expect(mockNangoProxy).toHaveBeenCalledTimes(2)
+
+      // Should only have events from primary calendar
+      expect(result.events).toHaveLength(1)
+      expect(result.events[0].calendarId).toBe('primary')
+    })
+
+    it('should default to primary only when enabledCalendarIds is not provided', async () => {
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              { id: 'primary', summary: 'Primary', primary: true, accessRole: 'owner' },
+              { id: 'other', summary: 'Other', primary: false, accessRole: 'owner' },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({ data: { items: [] } })
+
+      await getEvents.handler(
+        {},
+        {
+          nangoConnectionId: 'conn_123',
+          timeMin: '2024-01-15T00:00:00Z',
+          timeMax: '2024-01-15T23:59:59Z',
+          // No enabledCalendarIds provided - should default to ['primary']
+        }
+      )
+
+      // Should only make 2 calls: calendarList + events for primary only
+      expect(mockNangoProxy).toHaveBeenCalledTimes(2)
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          endpoint: '/calendar/v3/calendars/primary/events',
+        })
+      )
     })
   })
 
@@ -425,7 +546,13 @@ describe('Calendar Actions', () => {
 
   describe('checkAvailability', () => {
     it('should return available when no events exist', async () => {
-      mockNangoProxy.mockResolvedValue({ data: { items: [] } })
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [{ id: 'primary', summary: 'Primary', primary: true, accessRole: 'owner' }],
+          },
+        })
+        .mockResolvedValueOnce({ data: { items: [] } })
 
       const result = await checkAvailability.handler(
         {},
@@ -439,12 +566,22 @@ describe('Calendar Actions', () => {
       expect(result).toEqual({ available: true, conflictCount: 0 })
     })
 
-    it('should return unavailable with conflict count', async () => {
-      mockNangoProxy.mockResolvedValue({
-        data: {
-          items: [{ id: 'conflict_1' }, { id: 'conflict_2' }],
-        },
-      })
+    it('should return unavailable with conflict count across all calendars', async () => {
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              { id: 'primary', summary: 'Primary', primary: true, accessRole: 'owner' },
+              { id: 'family', summary: 'Family', primary: false, accessRole: 'writer' },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: { items: [{ id: 'conflict_1' }] },
+        })
+        .mockResolvedValueOnce({
+          data: { items: [{ id: 'conflict_2' }] },
+        })
 
       const result = await checkAvailability.handler(
         {},
@@ -458,8 +595,14 @@ describe('Calendar Actions', () => {
       expect(result).toEqual({ available: false, conflictCount: 2 })
     })
 
-    it('should call Nango proxy with singleEvents parameter', async () => {
-      mockNangoProxy.mockResolvedValue({ data: {} })
+    it('should call Nango proxy for each calendar with singleEvents parameter', async () => {
+      mockNangoProxy
+        .mockResolvedValueOnce({
+          data: {
+            items: [{ id: 'primary', summary: 'Primary', primary: true, accessRole: 'owner' }],
+          },
+        })
+        .mockResolvedValueOnce({ data: {} })
 
       await checkAvailability.handler(
         {},
@@ -470,7 +613,16 @@ describe('Calendar Actions', () => {
         }
       )
 
-      expect(mockNangoProxy).toHaveBeenCalledWith({
+      // First call is calendarList
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(1, {
+        method: 'GET',
+        endpoint: '/calendar/v3/users/me/calendarList',
+        connectionId: 'conn_123',
+        providerConfigKey: 'google-calendar',
+      })
+
+      // Second call is events for primary calendar
+      expect(mockNangoProxy).toHaveBeenNthCalledWith(2, {
         method: 'GET',
         endpoint: '/calendar/v3/calendars/primary/events',
         connectionId: 'conn_123',
@@ -484,7 +636,7 @@ describe('Calendar Actions', () => {
     })
 
     it('should handle missing items array', async () => {
-      mockNangoProxy.mockResolvedValue({ data: {} })
+      mockNangoProxy.mockResolvedValueOnce({ data: { items: [] } }) // no calendars
 
       const result = await checkAvailability.handler(
         {},
