@@ -1,6 +1,11 @@
 import { v } from 'convex/values'
 import { query, mutation, internalMutation, internalQuery } from './_generated/server'
-import { GOOGLE_CALENDAR_PROVIDER, GOOGLE_CALENDAR_SCOPES } from './lib/integrationConstants'
+import {
+  GOOGLE_CALENDAR_PROVIDER,
+  GOOGLE_CALENDAR_SCOPES,
+  GMAIL_PROVIDER,
+  GMAIL_SCOPES_READ_DRAFT,
+} from './lib/integrationConstants'
 import { requireCurrentUser } from './lib/auth'
 
 // Query: Get user's integrations
@@ -57,7 +62,21 @@ export const saveConnection = mutation({
     }
 
     // Create new integration
-    const scopes = args.provider === GOOGLE_CALENDAR_PROVIDER ? GOOGLE_CALENDAR_SCOPES : []
+    let scopes: string[] = []
+    if (args.provider === GOOGLE_CALENDAR_PROVIDER) {
+      scopes = GOOGLE_CALENDAR_SCOPES
+    } else if (args.provider === GMAIL_PROVIDER) {
+      scopes = GMAIL_SCOPES_READ_DRAFT
+    }
+
+    // Gmail-specific defaults
+    const gmailDefaults =
+      args.provider === GMAIL_PROVIDER
+        ? {
+            gmailPermissionLevel: 'read_draft' as const,
+            gmailRequireConfirmation: true,
+          }
+        : {}
 
     return ctx.db.insert('integrations', {
       userId: user._id,
@@ -66,6 +85,7 @@ export const saveConnection = mutation({
       status: 'active',
       scopes,
       connectedAt: Date.now(),
+      ...gmailDefaults,
     })
   },
 })
@@ -181,5 +201,44 @@ export const setCalendarEnabled = mutation({
     })
 
     return { enabledCalendarIds: newEnabled }
+  },
+})
+
+// Mutation: Update Gmail permission settings
+export const setGmailSettings = mutation({
+  args: {
+    permissionLevel: v.union(
+      v.literal('read'),
+      v.literal('read_draft'),
+      v.literal('read_draft_send')
+    ),
+    requireConfirmation: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+
+    const integration = await ctx.db
+      .query('integrations')
+      .withIndex('by_user_and_provider', (q) =>
+        q.eq('userId', user._id).eq('provider', GMAIL_PROVIDER)
+      )
+      .first()
+
+    if (!integration) {
+      throw new Error('Gmail not connected')
+    }
+
+    const updates: Record<string, unknown> = {
+      gmailPermissionLevel: args.permissionLevel,
+    }
+
+    // Only set confirmation if permission level includes send
+    if (args.permissionLevel === 'read_draft_send' && args.requireConfirmation !== undefined) {
+      updates.gmailRequireConfirmation = args.requireConfirmation
+    }
+
+    await ctx.db.patch(integration._id, updates)
+
+    return { success: true }
   },
 })
