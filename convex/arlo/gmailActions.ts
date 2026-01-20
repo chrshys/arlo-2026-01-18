@@ -226,3 +226,158 @@ export const searchMessages = internalAction({
     return { messages }
   },
 })
+
+// Helper: Encode email to base64url format
+function encodeEmail(options: {
+  to: string[]
+  subject: string
+  body: string
+  replyToMessageId?: string
+  threadId?: string
+}): string {
+  let email = ''
+  email += `To: ${options.to.join(', ')}\r\n`
+  email += `Subject: ${options.subject}\r\n`
+  email += `MIME-Version: 1.0\r\n`
+  email += `Content-Type: text/plain; charset="UTF-8"\r\n`
+
+  if (options.replyToMessageId) {
+    email += `In-Reply-To: ${options.replyToMessageId}\r\n`
+    email += `References: ${options.replyToMessageId}\r\n`
+  }
+
+  email += `\r\n`
+  email += options.body
+
+  return Buffer.from(email).toString('base64url')
+}
+
+// Create a draft
+export const createDraft = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    to: v.array(v.string()),
+    subject: v.string(),
+    body: v.string(),
+    replyToMessageId: v.optional(v.string()),
+    threadId: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const raw = encodeEmail({
+      to: args.to,
+      subject: args.subject,
+      body: args.body,
+      replyToMessageId: args.replyToMessageId,
+      threadId: args.threadId,
+    })
+
+    const response = await nango.proxy({
+      method: 'POST',
+      endpoint: '/gmail/v1/users/me/drafts',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        message: {
+          raw,
+          threadId: args.threadId,
+        },
+      },
+    })
+
+    const draft = response.data as { id: string; message: { id: string; threadId: string } }
+    return {
+      draftId: draft.id,
+      messageId: draft.message.id,
+      threadId: draft.message.threadId,
+    }
+  },
+})
+
+// Send a message directly
+export const sendMessage = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    to: v.array(v.string()),
+    subject: v.string(),
+    body: v.string(),
+    replyToMessageId: v.optional(v.string()),
+    threadId: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const raw = encodeEmail({
+      to: args.to,
+      subject: args.subject,
+      body: args.body,
+      replyToMessageId: args.replyToMessageId,
+      threadId: args.threadId,
+    })
+
+    const response = await nango.proxy({
+      method: 'POST',
+      endpoint: '/gmail/v1/users/me/messages/send',
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        raw,
+        threadId: args.threadId,
+      },
+    })
+
+    const sent = response.data as { id: string; threadId: string; labelIds: string[] }
+    return {
+      messageId: sent.id,
+      threadId: sent.threadId,
+    }
+  },
+})
+
+// Send an existing draft
+export const sendDraft = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    draftId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    const response = await nango.proxy({
+      method: 'POST',
+      endpoint: `/gmail/v1/users/me/drafts/send`,
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+      data: {
+        id: args.draftId,
+      },
+    })
+
+    const sent = response.data as { id: string; threadId: string; labelIds: string[] }
+    return {
+      messageId: sent.id,
+      threadId: sent.threadId,
+    }
+  },
+})
+
+// Delete a draft
+export const deleteDraft = internalAction({
+  args: {
+    nangoConnectionId: v.string(),
+    draftId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const nango = getNangoClient()
+
+    await nango.proxy({
+      method: 'DELETE',
+      endpoint: `/gmail/v1/users/me/drafts/${args.draftId}`,
+      connectionId: args.nangoConnectionId,
+      providerConfigKey: GMAIL_PROVIDER,
+    })
+
+    return { success: true }
+  },
+})
