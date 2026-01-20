@@ -4,21 +4,23 @@ import { internal } from '../../_generated/api'
 import { Id } from '../../_generated/dataModel'
 import { GOOGLE_CALENDAR_PROVIDER } from '../../lib/integrationConstants'
 
-function getUserId(ctx: { userId?: string }): Id<'users'> {
+// Exported for testing
+export function getUserId(ctx: { userId?: string }): Id<'users'> {
   if (!ctx.userId) {
     throw new Error('User context not available')
   }
   return ctx.userId as Id<'users'>
 }
 
-type CalendarConnectionResult =
+export type CalendarConnectionResult =
   | { error: string }
   | {
       integration: { _id: Id<'integrations'>; nangoConnectionId: string; status: string }
       timezone: string
     }
 
-async function getCalendarConnection(
+// Exported for testing
+export async function getCalendarConnection(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx: any,
   userId: Id<'users'>
@@ -51,7 +53,8 @@ async function getCalendarConnection(
 }
 
 // Convert a date string to full ISO 8601 format for Google Calendar API
-function toISODateTime(dateStr: string, endOfDay = false): string {
+// Exported for testing
+export function toISODateTime(dateStr: string, endOfDay = false): string {
   // If already looks like ISO datetime, return as-is
   if (dateStr.includes('T')) {
     return dateStr
