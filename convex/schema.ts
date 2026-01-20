@@ -115,6 +115,11 @@ export default defineSchema({
     connectedAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     enabledCalendarIds: v.optional(v.array(v.string())),
+    // Gmail-specific settings
+    gmailPermissionLevel: v.optional(
+      v.union(v.literal('read'), v.literal('read_draft'), v.literal('read_draft_send'))
+    ),
+    gmailRequireConfirmation: v.optional(v.boolean()),
   })
     .index('by_user', ['userId'])
     .index('by_user_and_provider', ['userId', 'provider'])
