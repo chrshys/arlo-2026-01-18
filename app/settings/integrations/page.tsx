@@ -11,6 +11,12 @@ const AVAILABLE_INTEGRATIONS = [
     description: 'Read and manage calendar events',
     icon: '📅',
   },
+  {
+    provider: 'gmail',
+    name: 'Gmail',
+    description: 'Search, read, and send emails',
+    icon: '✉️',
+  },
 ]
 
 export default function IntegrationsPage() {
