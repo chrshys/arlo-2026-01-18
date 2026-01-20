@@ -313,3 +313,221 @@ export const summarizeInbox = createTool({
     }
   },
 })
+
+export const createDraft = createTool({
+  description: 'Create a draft email',
+  args: z.object({
+    to: z.array(z.string()).describe('Recipient email addresses'),
+    subject: z.string().describe('Email subject'),
+    body: z.string().describe('Email body (plain text)'),
+    replyToMessageId: z.string().optional().describe('Message ID if replying to an email'),
+    threadId: z.string().optional().describe('Thread ID to add to existing conversation'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft')
+
+    if ('error' in result) {
+      return { draftId: null, error: result.error }
+    }
+
+    try {
+      const response = (await ctx.runAction(internal.arlo.gmailActions.createDraft, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        to: args.to,
+        subject: args.subject,
+        body: args.body,
+        replyToMessageId: args.replyToMessageId,
+        threadId: args.threadId,
+      })) as { draftId: string; messageId: string; threadId: string }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'email_draft_created',
+        actor: 'arlo',
+        outcome: 'success',
+        targetId: response.draftId,
+        details: `Created draft: "${args.subject}" to ${args.to.join(', ')}`,
+      })
+
+      return {
+        draftId: response.draftId,
+        message: `Draft created: "${args.subject}" to ${args.to.join(', ')}`,
+      }
+    } catch (error) {
+      console.error('Failed to create draft:', error)
+      return { draftId: null, error: 'Failed to create draft' }
+    }
+  },
+})
+
+export const sendEmail = createTool({
+  description:
+    'Send an email. If confirmation is required in settings, creates a draft instead and returns pending status.',
+  args: z.object({
+    to: z.array(z.string()).describe('Recipient email addresses'),
+    subject: z.string().describe('Email subject'),
+    body: z.string().describe('Email body (plain text)'),
+    replyToMessageId: z.string().optional().describe('Message ID if replying'),
+    threadId: z.string().optional().describe('Thread ID for existing conversation'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { status: 'error', error: result.error }
+    }
+
+    // Check if confirmation is required
+    if (requiresSendConfirmation(result.integration)) {
+      // Create draft instead
+      try {
+        const draftResponse = (await ctx.runAction(internal.arlo.gmailActions.createDraft, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          to: args.to,
+          subject: args.subject,
+          body: args.body,
+          replyToMessageId: args.replyToMessageId,
+          threadId: args.threadId,
+        })) as { draftId: string }
+
+        await ctx.runMutation(internal.activity.log, {
+          userId,
+          action: 'email_draft_created',
+          actor: 'arlo',
+          outcome: 'success',
+          targetId: draftResponse.draftId,
+          details: `Draft pending confirmation: "${args.subject}" to ${args.to.join(', ')}`,
+        })
+
+        return {
+          status: 'pending_confirmation',
+          draftId: draftResponse.draftId,
+          message: `Draft created for "${args.subject}" to ${args.to.join(', ')}. Reply "send it" to confirm, or "cancel" to delete.`,
+        }
+      } catch (error) {
+        console.error('Failed to create draft:', error)
+        return { status: 'error', error: 'Failed to create draft' }
+      }
+    }
+
+    // Send directly
+    try {
+      const response = (await ctx.runAction(internal.arlo.gmailActions.sendMessage, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        to: args.to,
+        subject: args.subject,
+        body: args.body,
+        replyToMessageId: args.replyToMessageId,
+        threadId: args.threadId,
+      })) as { messageId: string; threadId: string }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'email_sent',
+        actor: 'arlo',
+        outcome: 'success',
+        targetId: response.messageId,
+        details: `Sent: "${args.subject}" to ${args.to.join(', ')}`,
+      })
+
+      return {
+        status: 'sent',
+        messageId: response.messageId,
+        message: `Email sent: "${args.subject}" to ${args.to.join(', ')}`,
+      }
+    } catch (error) {
+      console.error('Failed to send email:', error)
+      return { status: 'error', error: 'Failed to send email' }
+    }
+  },
+})
+
+export const sendDraft = createTool({
+  description: 'Send an existing draft (for confirming pending drafts)',
+  args: z.object({
+    draftId: z.string().describe('The draft ID to send'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      const response = (await ctx.runAction(internal.arlo.gmailActions.sendDraft, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        draftId: args.draftId,
+      })) as { messageId: string; threadId: string }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'email_sent',
+        actor: 'arlo',
+        outcome: 'success',
+        targetId: response.messageId,
+        details: 'Sent draft email',
+      })
+
+      return {
+        success: true,
+        messageId: response.messageId,
+        message: 'Email sent successfully',
+      }
+    } catch (error) {
+      console.error('Failed to send draft:', error)
+      return { success: false, error: 'Failed to send draft' }
+    }
+  },
+})
+
+export const deleteDraft = createTool({
+  description: 'Delete a draft (for cancelling pending drafts)',
+  args: z.object({
+    draftId: z.string().describe('The draft ID to delete'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      await ctx.runAction(internal.arlo.gmailActions.deleteDraft, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        draftId: args.draftId,
+      })
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'email_draft_cancelled',
+        actor: 'arlo',
+        outcome: 'success',
+        targetId: args.draftId,
+        details: 'Deleted draft email',
+      })
+
+      return { success: true, message: 'Draft deleted' }
+    } catch (error) {
+      console.error('Failed to delete draft:', error)
+      return { success: false, error: 'Failed to delete draft' }
+    }
+  },
+})
