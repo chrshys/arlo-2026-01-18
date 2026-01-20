@@ -22,6 +22,24 @@ import {
   checkCalendarAvailability,
   listAccessibleCalendars,
 } from './tools/calendar'
+import {
+  searchEmails,
+  getEmail,
+  getEmailThread,
+  summarizeInbox,
+  createDraft,
+  sendEmail,
+  sendDraft,
+  deleteDraft,
+  listLabels,
+  applyLabel,
+  removeLabel,
+  archiveEmail,
+  markAsRead,
+  createGmailLabel,
+  deleteGmailLabel,
+  createTaskFromEmail,
+} from './tools/gmail'
 
 const gateway = createGateway({
   apiKey: process.env.AI_GATEWAY_API_KEY,
@@ -52,6 +70,24 @@ You have access to Google Calendar (if the user has connected it):
 
 When the user asks about their schedule, calendar, or meetings, use the calendar tools.
 If the calendar isn't connected, the tool will return an error message - share that with the user.
+
+You have access to Gmail (if the user has connected it):
+- Search and read emails
+- Get full email content or entire threads
+- Summarize unread inbox
+- Create draft emails
+- Send emails (may require confirmation based on settings)
+- Manage labels (list, create, apply, remove)
+- Archive emails, mark as read
+- Create tasks from emails
+
+When handling email requests:
+- If sending requires confirmation, create a draft and ask the user to confirm
+- When user says "send it" or "confirm", use sendDraft with the draft ID
+- When user says "cancel" or "don't send", use deleteDraft
+- Permission levels control what's available - share any permission errors with the user
+
+If Gmail isn't connected, the tool will return an error message - share that with the user.
 
 Task organization:
 - Tasks can be in the Inbox (no project) or in a Project
@@ -98,6 +134,23 @@ When they mention personal items, check for Personal projects.`,
     updateCalendarEvent,
     deleteCalendarEvent,
     checkCalendarAvailability,
+    // Gmail tools
+    searchEmails,
+    getEmail,
+    getEmailThread,
+    summarizeInbox,
+    createDraft,
+    sendEmail,
+    sendDraft,
+    deleteDraft,
+    listLabels,
+    applyLabel,
+    removeLabel,
+    archiveEmail,
+    markAsRead,
+    createGmailLabel,
+    deleteGmailLabel,
+    createTaskFromEmail,
   },
   maxSteps: 8,
 })
