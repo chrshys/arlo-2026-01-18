@@ -11,10 +11,12 @@
 import type * as activity from "../activity.js";
 import type * as arlo_agent from "../arlo/agent.js";
 import type * as arlo_calendarActions from "../arlo/calendarActions.js";
+import type * as arlo_gmailActions from "../arlo/gmailActions.js";
 import type * as arlo_mutations from "../arlo/mutations.js";
 import type * as arlo_systemPrompt from "../arlo/systemPrompt.js";
 import type * as arlo_tools from "../arlo/tools.js";
 import type * as arlo_tools_calendar from "../arlo/tools/calendar.js";
+import type * as arlo_tools_gmail from "../arlo/tools/gmail.js";
 import type * as chat from "../chat.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
@@ -44,10 +46,12 @@ declare const fullApi: ApiFromModules<{
   activity: typeof activity;
   "arlo/agent": typeof arlo_agent;
   "arlo/calendarActions": typeof arlo_calendarActions;
+  "arlo/gmailActions": typeof arlo_gmailActions;
   "arlo/mutations": typeof arlo_mutations;
   "arlo/systemPrompt": typeof arlo_systemPrompt;
   "arlo/tools": typeof arlo_tools;
   "arlo/tools/calendar": typeof arlo_tools_calendar;
+  "arlo/tools/gmail": typeof arlo_tools_gmail;
   chat: typeof chat;
   folders: typeof folders;
   http: typeof http;
