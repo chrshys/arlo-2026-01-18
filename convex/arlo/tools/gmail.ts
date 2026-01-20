@@ -531,3 +531,286 @@ export const deleteDraft = createTool({
     }
   },
 })
+
+export const listLabels = createTool({
+  description: 'List all Gmail labels (both system and custom)',
+  args: z.object({}),
+  handler: async (ctx) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read')
+
+    if ('error' in result) {
+      return { labels: [], error: result.error }
+    }
+
+    try {
+      const response = (await ctx.runAction(internal.arlo.gmailActions.listLabels, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+      })) as {
+        labels: Array<{ id: string; name: string; type: string }>
+      }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        labels: response.labels.map((l) => ({
+          id: l.id,
+          name: l.name,
+          type: l.type,
+        })),
+      }
+    } catch (error) {
+      console.error('Failed to list labels:', error)
+      return { labels: [], error: 'Failed to list labels' }
+    }
+  },
+})
+
+export const applyLabel = createTool({
+  description: 'Apply a label to one or more emails',
+  args: z.object({
+    emailIds: z.array(z.string()).describe('Email IDs to label'),
+    labelId: z.string().describe('Label ID to apply'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      if (args.emailIds.length === 1) {
+        await ctx.runAction(internal.arlo.gmailActions.modifyMessageLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageId: args.emailIds[0],
+          addLabelIds: [args.labelId],
+        })
+      } else {
+        await ctx.runAction(internal.arlo.gmailActions.batchModifyLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageIds: args.emailIds,
+          addLabelIds: [args.labelId],
+        })
+      }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        success: true,
+        message: `Applied label to ${args.emailIds.length} email(s)`,
+      }
+    } catch (error) {
+      console.error('Failed to apply label:', error)
+      return { success: false, error: 'Failed to apply label' }
+    }
+  },
+})
+
+export const removeLabel = createTool({
+  description: 'Remove a label from one or more emails',
+  args: z.object({
+    emailIds: z.array(z.string()).describe('Email IDs'),
+    labelId: z.string().describe('Label ID to remove'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      if (args.emailIds.length === 1) {
+        await ctx.runAction(internal.arlo.gmailActions.modifyMessageLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageId: args.emailIds[0],
+          removeLabelIds: [args.labelId],
+        })
+      } else {
+        await ctx.runAction(internal.arlo.gmailActions.batchModifyLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageIds: args.emailIds,
+          removeLabelIds: [args.labelId],
+        })
+      }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        success: true,
+        message: `Removed label from ${args.emailIds.length} email(s)`,
+      }
+    } catch (error) {
+      console.error('Failed to remove label:', error)
+      return { success: false, error: 'Failed to remove label' }
+    }
+  },
+})
+
+export const archiveEmail = createTool({
+  description: 'Archive emails (remove from inbox)',
+  args: z.object({
+    emailIds: z.array(z.string()).describe('Email IDs to archive'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      if (args.emailIds.length === 1) {
+        await ctx.runAction(internal.arlo.gmailActions.modifyMessageLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageId: args.emailIds[0],
+          removeLabelIds: ['INBOX'],
+        })
+      } else {
+        await ctx.runAction(internal.arlo.gmailActions.batchModifyLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageIds: args.emailIds,
+          removeLabelIds: ['INBOX'],
+        })
+      }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      await ctx.runMutation(internal.activity.log, {
+        userId,
+        action: 'archive_emails',
+        actor: 'arlo',
+        outcome: 'success',
+        details: `Archived ${args.emailIds.length} email(s)`,
+      })
+
+      return {
+        success: true,
+        message: `Archived ${args.emailIds.length} email(s)`,
+      }
+    } catch (error) {
+      console.error('Failed to archive:', error)
+      return { success: false, error: 'Failed to archive emails' }
+    }
+  },
+})
+
+export const markAsRead = createTool({
+  description: 'Mark emails as read',
+  args: z.object({
+    emailIds: z.array(z.string()).describe('Email IDs to mark as read'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      if (args.emailIds.length === 1) {
+        await ctx.runAction(internal.arlo.gmailActions.modifyMessageLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageId: args.emailIds[0],
+          removeLabelIds: ['UNREAD'],
+        })
+      } else {
+        await ctx.runAction(internal.arlo.gmailActions.batchModifyLabels, {
+          nangoConnectionId: result.integration.nangoConnectionId,
+          messageIds: args.emailIds,
+          removeLabelIds: ['UNREAD'],
+        })
+      }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        success: true,
+        message: `Marked ${args.emailIds.length} email(s) as read`,
+      }
+    } catch (error) {
+      console.error('Failed to mark as read:', error)
+      return { success: false, error: 'Failed to mark as read' }
+    }
+  },
+})
+
+export const createGmailLabel = createTool({
+  description: 'Create a new custom Gmail label',
+  args: z.object({
+    name: z.string().describe('Label name'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { labelId: null, error: result.error }
+    }
+
+    try {
+      const response = (await ctx.runAction(internal.arlo.gmailActions.createLabel, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        name: args.name,
+      })) as { id: string; name: string }
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return {
+        labelId: response.id,
+        message: `Created label "${args.name}"`,
+      }
+    } catch (error) {
+      console.error('Failed to create label:', error)
+      return { labelId: null, error: 'Failed to create label' }
+    }
+  },
+})
+
+export const deleteGmailLabel = createTool({
+  description: 'Delete a custom Gmail label (cannot delete system labels)',
+  args: z.object({
+    labelId: z.string().describe('Label ID to delete'),
+  }),
+  handler: async (ctx, args) => {
+    const userId = getUserId(ctx)
+    const result = await getGmailConnection(ctx, userId, 'read_draft_send')
+
+    if ('error' in result) {
+      return { success: false, error: result.error }
+    }
+
+    try {
+      await ctx.runAction(internal.arlo.gmailActions.deleteLabel, {
+        nangoConnectionId: result.integration.nangoConnectionId,
+        labelId: args.labelId,
+      })
+
+      await ctx.runMutation(internal.integrations.updateLastUsed, {
+        integrationId: result.integration._id,
+      })
+
+      return { success: true, message: 'Label deleted' }
+    } catch (error) {
+      console.error('Failed to delete label:', error)
+      return { success: false, error: 'Failed to delete label' }
+    }
+  },
+})
