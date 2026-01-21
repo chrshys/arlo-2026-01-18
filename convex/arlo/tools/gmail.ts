@@ -354,9 +354,31 @@ export const createDraft = createTool({
         details: `Created draft: "${args.subject}" to ${args.to.join(', ')}`,
       })
 
+      // Create desk item for user to approve
+      await ctx.runMutation(internal.desk.mutations.createInternal, {
+        userId,
+        type: 'draft',
+        zone: 'attention',
+        title: `Email to ${args.to.join(', ')}`,
+        description: args.subject,
+        data: {
+          draftType: 'email',
+          to: args.to.join(', '),
+          subject: args.subject,
+          body: args.body,
+          actions: [
+            { id: 'send', label: 'Send', variant: 'primary' },
+            { id: 'edit', label: 'Edit', variant: 'secondary' },
+            { id: 'discard', label: 'Discard', variant: 'destructive' },
+          ],
+        },
+        linkedEntityId: response.draftId,
+        linkedEntityType: 'emailDraft',
+      })
+
       return {
         draftId: response.draftId,
-        message: `Draft created: "${args.subject}" to ${args.to.join(', ')}`,
+        message: `Draft created: "${args.subject}" to ${args.to.join(', ')}. It's on our desk for your review.`,
       }
     } catch (error) {
       console.error('Failed to create draft:', error)
@@ -405,10 +427,32 @@ export const sendEmail = createTool({
           details: `Draft pending confirmation: "${args.subject}" to ${args.to.join(', ')}`,
         })
 
+        // Create desk item for user to approve
+        await ctx.runMutation(internal.desk.mutations.createInternal, {
+          userId,
+          type: 'draft',
+          zone: 'attention',
+          title: `Email to ${args.to.join(', ')}`,
+          description: args.subject,
+          data: {
+            draftType: 'email',
+            to: args.to.join(', '),
+            subject: args.subject,
+            body: args.body,
+            actions: [
+              { id: 'send', label: 'Send', variant: 'primary' },
+              { id: 'edit', label: 'Edit', variant: 'secondary' },
+              { id: 'discard', label: 'Discard', variant: 'destructive' },
+            ],
+          },
+          linkedEntityId: draftResponse.draftId,
+          linkedEntityType: 'emailDraft',
+        })
+
         return {
           status: 'pending_confirmation',
           draftId: draftResponse.draftId,
-          message: `Draft created for "${args.subject}" to ${args.to.join(', ')}. Reply "send it" to confirm, or "cancel" to delete.`,
+          message: `Draft created for "${args.subject}" to ${args.to.join(', ')}. It's on our desk for your review.`,
         }
       } catch (error) {
         console.error('Failed to create draft:', error)
