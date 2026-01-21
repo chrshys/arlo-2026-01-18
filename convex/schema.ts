@@ -106,6 +106,44 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_created_at', ['createdAt']),
 
+  deskItems: defineTable({
+    userId: v.id('users'),
+
+    // Item classification
+    type: v.union(
+      v.literal('approval'),
+      v.literal('question'),
+      v.literal('task'),
+      v.literal('draft'),
+      v.literal('progress')
+    ),
+    zone: v.union(v.literal('attention'), v.literal('pinned'), v.literal('working')),
+
+    // Content
+    title: v.string(),
+    description: v.optional(v.string()),
+
+    // Type-specific data stored as JSON
+    data: v.optional(v.any()),
+
+    // Relationships
+    sourceThreadId: v.optional(v.string()),
+    linkedEntityId: v.optional(v.string()),
+    linkedEntityType: v.optional(v.string()),
+
+    // Metadata
+    createdBy: v.union(v.literal('user'), v.literal('arlo')),
+    priority: v.optional(v.number()),
+
+    // Resolution
+    status: v.union(v.literal('active'), v.literal('resolved'), v.literal('dismissed')),
+    resolvedAt: v.optional(v.number()),
+    resolution: v.optional(v.string()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_zone', ['userId', 'zone'])
+    .index('by_user_status', ['userId', 'status']),
+
   integrations: defineTable({
     userId: v.id('users'),
     provider: v.string(),
