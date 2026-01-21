@@ -464,3 +464,66 @@ export const updateNote = createTool({
     return { message: 'Note updated' }
   },
 })
+
+// Desk tools
+
+export const createDeskItem = createTool({
+  description:
+    'Create an item on the shared desk. Use for drafts needing approval, questions needing answers, or progress updates.',
+  args: z.object({
+    type: z.enum(['approval', 'question', 'draft', 'progress']).describe('Type of desk item'),
+    zone: z.enum(['attention', 'pinned', 'working']).describe('Where to place the item'),
+    title: z.string().describe('Brief title for the item'),
+    description: z.string().optional().describe('Additional context'),
+    data: z
+      .object({
+        // For approvals
+        actions: z
+          .array(
+            z.object({
+              id: z.string(),
+              label: z.string(),
+              variant: z.enum(['primary', 'secondary', 'destructive']),
+            })
+          )
+          .optional(),
+        // For questions
+        question: z.string().optional(),
+        options: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
+        // For drafts
+        draftType: z.enum(['email']).optional(),
+        to: z.string().optional(),
+        subject: z.string().optional(),
+        body: z.string().optional(),
+        // For progress
+        operation: z.string().optional(),
+        percent: z.number().optional(),
+        status: z.enum(['running', 'completed', 'failed']).optional(),
+      })
+      .optional()
+      .describe('Type-specific data'),
+  }),
+  handler: async (ctx, args): Promise<{ success: boolean; deskItemId: string }> => {
+    const userId = getUserId(ctx)
+
+    const itemId = await ctx.runMutation(internal.desk.mutations.createInternal, {
+      userId,
+      type: args.type,
+      zone: args.zone,
+      title: args.title,
+      description: args.description,
+      data: args.data,
+    })
+
+    await ctx.runMutation(internal.activity.log, {
+      userId,
+      action: 'create_desk_item',
+      actor: 'arlo',
+      outcome: 'success',
+      targetId: itemId,
+      details: `Added "${args.title}" to desk in ${args.zone} zone`,
+    })
+
+    return { success: true, deskItemId: itemId }
+  },
+})
