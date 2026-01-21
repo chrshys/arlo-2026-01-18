@@ -1,5 +1,22 @@
-import { internalMutation } from './_generated/server'
+import { internalMutation, query } from './_generated/server'
 import { v } from 'convex/values'
+import { requireCurrentUser } from './lib/auth'
+
+export const list = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx)
+    const limit = args.limit || 50
+
+    return await ctx.db
+      .query('activity')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .order('desc')
+      .take(limit)
+  },
+})
 
 export const log = internalMutation({
   args: {
