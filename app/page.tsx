@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../convex/_generated/api'
 import { Chat } from '@/components/Chat'
-import { TaskList } from '@/components/TaskList'
+import { DeskPanel } from '@/components/desk'
 import { ConversationList } from '@/components/ConversationList'
 import { AppShell, PanelHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Plus, CheckSquare } from 'lucide-react'
+import { Plus, LayoutDashboard } from 'lucide-react'
 import { useAppMode } from '@/components/providers/app-mode-provider'
 import { TasksView } from '@/components/tasks'
 
@@ -54,19 +54,12 @@ function ChatMode() {
           <PanelHeader>
             <PanelHeader.Title>
               <span className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4" />
-                Tasks
+                <LayoutDashboard className="h-4 w-4" />
+                Desk
               </span>
             </PanelHeader.Title>
-            <PanelHeader.Actions>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </PanelHeader.Actions>
           </PanelHeader>
-          <div className="flex-1 overflow-auto">
-            <TaskList />
-          </div>
+          <DeskPanel />
         </AppShell.Canvas>
       }
     />
