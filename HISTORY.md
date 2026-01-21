@@ -51,11 +51,14 @@ This file captures summaries of development sessions, key decisions made, and ar
 
 - OAuth integration framework via Nango
 - Google Calendar integration with full CRUD
+- **Gmail integration** with reading, drafting, sending, and organization
 - Integrations settings page at `/settings/integrations`
 - Connection status tracking (active, expired, revoked)
 - Webhook handler for token refresh errors and revocations
 - 6 Arlo calendar tools: getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkCalendarAvailability, listAccessibleCalendars
+- 16 Arlo Gmail tools: searchEmails, getEmail, getEmailThread, summarizeInbox, createDraft, sendEmail, sendDraft, deleteDraft, listLabels, applyLabel, removeLabel, archiveEmail, markAsRead, createGmailLabel, deleteGmailLabel, createTaskFromEmail
 - Calendar selector UI to control which calendars Arlo can access
+- Gmail settings UI with permission levels and send confirmation toggle
 
 **User Settings:**
 
@@ -1905,3 +1908,154 @@ ebe873e feat(ui): integrate CalendarSelector into IntegrationCard
 ```
 
 **Result:** Users can now control which Google Calendars Arlo can access via Settings → Integrations. Arlo can list its accessible calendars and all calendar operations respect the enabled calendars setting.
+
+---
+
+### 2026-01-20 (continued) — Gmail Integration Implementation
+
+**Focus:** Add Gmail integration to Arlo via Nango, enabling email reading, drafting, sending, and organization with configurable permissions.
+
+**Branch:** `feat/gmail-integration`
+
+**Architecture:** Followed existing Nango integration pattern (Google Calendar):
+
+- Actions in `gmailActions.ts` handle API calls via `nango.proxy()`
+- Tools in `tools/gmail.ts` expose capabilities to Arlo
+- Settings UI mirrors CalendarSelector pattern
+
+**Permission Levels:**
+
+| Level             | Capabilities                  |
+| ----------------- | ----------------------------- |
+| `read`            | Search and read emails only   |
+| `read_draft`      | Read emails and create drafts |
+| `read_draft_send` | Full access including sending |
+
+Default: `read_draft` with confirmation required for sending.
+
+**Gmail Actions (gmailActions.ts):**
+
+Message operations:
+
+- `listMessages` — List message IDs with optional query/labels
+- `getMessage` — Get full message content by ID
+- `getThread` — Get entire thread with all messages
+- `searchMessages` — Search with Gmail query syntax, returns full messages
+
+Draft/Send operations:
+
+- `createDraft` — Create draft email
+- `sendMessage` — Send email directly
+- `sendDraft` — Send existing draft
+- `deleteDraft` — Delete draft
+
+Label operations:
+
+- `listLabels` — List all labels (system + custom)
+- `createLabel` — Create custom label
+- `updateLabel` — Rename label
+- `deleteLabel` — Delete custom label
+- `modifyMessageLabels` — Add/remove labels on single message
+- `batchModifyLabels` — Add/remove labels on multiple messages
+
+**Gmail Tools (tools/gmail.ts) — 16 tools:**
+
+Reading:
+
+- `searchEmails` — Search with Gmail query syntax
+- `getEmail` — Get full email content
+- `getEmailThread` — Get entire conversation
+- `summarizeInbox` — Get unread email summary
+
+Composing:
+
+- `createDraft` — Create draft email
+- `sendEmail` — Send email (creates draft if confirmation required)
+- `sendDraft` — Send existing draft
+- `deleteDraft` — Delete draft
+
+Organization:
+
+- `listLabels` — List all Gmail labels
+- `applyLabel` — Apply label to emails
+- `removeLabel` — Remove label from emails
+- `archiveEmail` — Archive emails (remove from inbox)
+- `markAsRead` — Mark emails as read
+- `createGmailLabel` — Create custom label
+- `deleteGmailLabel` — Delete custom label
+
+Task Integration:
+
+- `createTaskFromEmail` — Create Arlo task linked to email
+
+**Schema Changes:**
+
+```typescript
+// convex/schema.ts - integrations table
+gmailPermissionLevel: v.optional(
+  v.union(v.literal('read'), v.literal('read_draft'), v.literal('read_draft_send'))
+),
+gmailRequireConfirmation: v.optional(v.boolean()),
+```
+
+**Files Created:**
+
+| File                                                             | Purpose                                       |
+| ---------------------------------------------------------------- | --------------------------------------------- |
+| `convex/arlo/gmailActions.ts`                                    | Gmail API actions via Nango proxy             |
+| `convex/arlo/tools/gmail.ts`                                     | 16 Arlo tools for email operations            |
+| `components/integrations/GmailSettings.tsx`                      | Permission level and confirmation settings UI |
+| `docs/plans/2026-01-20-gmail-integration-design.md`              | Design document                               |
+| `docs/plans/done/2026-01-20-gmail-integration-implementation.md` | Implementation plan                           |
+
+**Files Modified:**
+
+| File                                          | Changes                                                     |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `convex/lib/integrationConstants.ts`          | Added `GMAIL_PROVIDER`, `GMAIL_SCOPES_*` constants          |
+| `convex/schema.ts`                            | Added Gmail permission fields to integrations               |
+| `convex/integrations.ts`                      | Added `setGmailSettings` mutation, updated `saveConnection` |
+| `convex/arlo/agent.ts`                        | Registered 16 Gmail tools, updated system prompt            |
+| `components/integrations/IntegrationCard.tsx` | Integrated GmailSettings component                          |
+| `app/settings/integrations/page.tsx`          | Added Gmail to available integrations                       |
+
+**Deviation from Plan (Justified):**
+
+1. **Provider ID**: Changed from `'gmail'` to `'google-mail'` to match Nango integration ID (commit `00c83c4`)
+2. **Task creation**: Uses existing `internal.tasks.create` instead of new `createInternal` mutation
+3. **GmailSettings UI**: Enhanced with radio buttons, icons, and capability descriptions
+
+**OAuth Note:** Running in Google test mode — scopes require Google approval for production. Works fine for development/personal use.
+
+**Code Review Results:**
+
+- **Assessment:** Approved with minor suggestions
+- **Strengths:** Clean error handling, proper activity logging, type safety, correct permission checking
+- **Minor suggestions:** Unused `boundary` variable in `encodeEmail`, could add error rollback to UI state
+
+**Commits (20 total):**
+
+```
+f05bfc8 docs: add Gmail integration design
+b45e787 docs: add Gmail integration implementation plan
+040e29d feat(gmail): add Gmail provider constants and scopes
+af85f79 feat(gmail): add Gmail permission fields to schema
+c22368e feat(gmail): add Gmail settings mutation and update saveConnection
+9708017 feat(gmail): add Gmail message actions (list, get, search, thread)
+d3d15a6 feat(gmail): add draft and send actions
+7f2bf88 feat(gmail): add label actions (list, create, update, delete, modify)
+c5e005f feat(gmail): add Gmail tools helper functions
+fbac4f6 feat(gmail): add reading tools (search, get, thread, summarize)
+5590824 feat(gmail): add composing tools (createDraft, sendEmail, sendDraft, deleteDraft)
+f4ac83c feat(gmail): add organization tools (labels, archive, markAsRead)
+4157da2 feat(gmail): add createTaskFromEmail tool
+79f4494 feat(gmail): register Gmail tools in Arlo agent
+8467430 feat(gmail): add GmailSettings UI component
+c3bec5c feat(gmail): integrate GmailSettings into IntegrationCard
+1680852 feat(gmail): add Gmail to integrations settings page
+7a7c276 chore: update generated API types for Gmail integration
+00c83c4 fix: align Gmail provider ID with Nango integration ID
+c43979c docs: move Gmail implementation plan to done
+```
+
+**Result:** Full Gmail integration complete. Users can connect Gmail in Settings → Integrations, configure permission levels and send confirmation. Arlo can search/read emails, create drafts, send messages (with optional confirmation), manage labels, archive, and create tasks from emails.
