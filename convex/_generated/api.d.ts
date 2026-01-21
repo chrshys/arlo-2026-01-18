@@ -21,6 +21,7 @@ import type * as chat from "../chat.js";
 import type * as desk_index from "../desk/index.js";
 import type * as desk_mutations from "../desk/mutations.js";
 import type * as desk_queries from "../desk/queries.js";
+import type * as desk_today from "../desk/today.js";
 import type * as desk_types from "../desk/types.js";
 import type * as folders from "../folders.js";
 import type * as http from "../http.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "desk/index": typeof desk_index;
   "desk/mutations": typeof desk_mutations;
   "desk/queries": typeof desk_queries;
+  "desk/today": typeof desk_today;
   "desk/types": typeof desk_types;
   folders: typeof folders;
   http: typeof http;
