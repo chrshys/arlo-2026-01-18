@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from 'convex/react'
+import { useQuery, useConvexAuth } from 'convex/react'
 import { api } from '../convex/_generated/api'
 import { cn } from '@/lib/utils'
 
@@ -29,7 +29,12 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 export function ConversationList({ selectedThreadId, onSelectThread }: ConversationListProps) {
-  const threads = useQuery(api.threads.list)
+  const { isAuthenticated } = useConvexAuth()
+  const threads = useQuery(api.threads.list, isAuthenticated ? undefined : 'skip')
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   if (threads === undefined) {
     return <div className="p-4 text-sm text-muted-foreground">Loading...</div>
